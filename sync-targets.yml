@@ -1,0 +1,26 @@
+# App repos that receive skills from this repo.
+#
+# On every release tag (v*), the "Sync skills" workflow copies the selected
+# skills into each target and opens or updates one pull request per repo and
+# branch. Run it by hand from the Actions tab to sync without a release.
+#
+# Fields:
+#   repo      required. owner/name
+#   branches  optional. Base branches to open PRs against. Default: the repo's
+#             default branch. Leave release branches out unless they should
+#             change tooling mid-release.
+#   skills    optional. "all" (default) or a list of skill folder names.
+#   dest      optional. Folder in the target repo. Default: .claude/skills,
+#             which both Claude Code and GitHub Copilot read.
+#
+# Every repo listed here must have the skills-sync GitHub App installed.
+#
+# Example:
+#   targets:
+#     - repo: my-org/orders-service
+#       branches: [main, develop]
+#       skills: all
+#     - repo: my-org/billing-service
+#       skills: [research-approve-build-verify]
+
+targets: []

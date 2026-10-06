@@ -1,0 +1,25 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync script tests
+        run: bash tests/sync-skills.test.sh
+
+      - name: Target matrix tests
+        run: bash tests/targets-matrix.test.sh
+
+      - name: sync-targets.yml is valid
+        run: bash scripts/targets-matrix.sh sync-targets.yml
