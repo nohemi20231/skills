@@ -1,6 +1,6 @@
 name: Sync skills
 
-# Copies skills into every repo in sync-targets.yml and opens (or updates) one
+# Copies skills into every repo in sync/targets.yml and opens (or updates) one
 # pull request per repo and branch. Needs a GitHub App installed on the target
 # repos, with its ID in the SKILLS_SYNC_APP_ID variable and its private key in
 # the SKILLS_SYNC_PRIVATE_KEY secret. See README.md.
@@ -31,9 +31,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - id: matrix
-        name: Read sync-targets.yml
+        name: Read sync/targets.yml
         run: |
-          matrix="$(bash scripts/targets-matrix.sh sync-targets.yml)"
+          matrix="$(bash sync/scripts/targets-matrix.sh sync/targets.yml)"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "count=$(jq length <<<"$matrix")" >> "$GITHUB_OUTPUT"
           echo "Targets: $(jq length <<<"$matrix")"
@@ -87,7 +87,7 @@ jobs:
         env:
           SKILLS: ${{ matrix.target.skills }}
           SKILLS_DEST: ${{ matrix.target.dest }}
-        run: bash source/scripts/sync-skills.sh source target "$SKILLS"
+        run: bash source/sync/scripts/sync-skills.sh source target "$SKILLS"
 
       - name: Open or update pull request
         uses: peter-evans/create-pull-request@v7

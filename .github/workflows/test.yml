@@ -16,10 +16,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Sync script tests
-        run: bash tests/sync-skills.test.sh
+        run: bash sync/tests/sync-skills.test.sh
 
       - name: Target matrix tests
-        run: bash tests/targets-matrix.test.sh
+        run: bash sync/tests/targets-matrix.test.sh
 
-      - name: sync-targets.yml is valid
-        run: bash scripts/targets-matrix.sh sync-targets.yml
+      - name: sync/targets.yml is valid
+        run: bash sync/scripts/targets-matrix.sh sync/targets.yml

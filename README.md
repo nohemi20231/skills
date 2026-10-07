@@ -6,9 +6,22 @@ Agent skills for Claude Code and GitHub Copilot, one folder per skill, each with
 |---|---|
 | `research-approve-build-verify/` | Adds a feature to an existing app: parallel read-only research, design approval gate, TDD build, fresh-context QA, evidence report. |
 
+## Layout
+
+```
+research-approve-build-verify/   one folder per skill, each with a SKILL.md
+sync/                            tooling that delivers skills to app repos
+  targets.yml                    which app repos get which skills
+  scripts/                       sync script and target parser
+  tests/                         tests for both
+.github/workflows/               sync and test workflows (GitHub requires this path)
+```
+
+Any top-level folder with a `SKILL.md` is a skill. Add a skill by adding a folder next to the existing ones.
+
 ## How app repos get these skills
 
-Developers don't install anything. On each release, a workflow copies the skills into every app repo listed in [`sync-targets.yml`](sync-targets.yml) and opens a pull request there. Once it's merged, everyone gets the skills with a normal `git pull`.
+Developers don't install anything. On each release, a workflow copies the skills into every app repo listed in [`sync/targets.yml`](sync/targets.yml) and opens a pull request there. Once it's merged, everyone gets the skills with a normal `git pull`.
 
 ```
 tag v1.2.0 here ──▶ Sync skills workflow ──▶ PR into each app repo's .claude/skills/ ──▶ merge ──▶ git pull
@@ -30,7 +43,7 @@ To sync without a release, run **Sync skills** from the Actions tab.
 ### Adding an app repo
 
 1. Install the skills-sync GitHub App on the repo (see setup below).
-2. Add it to `sync-targets.yml`:
+2. Add it to `sync/targets.yml`:
    ```yaml
    targets:
      - repo: my-org/orders-service
@@ -62,6 +75,6 @@ Restart Claude Code, then run `/research-approve-build-verify`.
 ## Development
 
 ```bash
-bash tests/sync-skills.test.sh
-bash tests/targets-matrix.test.sh
+bash sync/tests/sync-skills.test.sh
+bash sync/tests/targets-matrix.test.sh
 ```

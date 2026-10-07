@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tests for scripts/sync-skills.sh. Run: bash tests/sync-skills.test.sh
+# Tests for scripts/sync-skills.sh. Run: bash sync/tests/sync-skills.test.sh
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -21,7 +21,7 @@ setup() {
   mkdir -p "$SRC/alpha/references"
   echo "alpha ref" > "$SRC/alpha/references/notes.md"
   # Folders without a SKILL.md are not skills and must never be copied.
-  mkdir -p "$SRC/scripts" "$SRC/tests" "$SRC/.github"
+  mkdir -p "$SRC/sync/scripts" "$SRC/scripts" "$SRC/tests" "$SRC/.github"
   echo "x" > "$SRC/scripts/tool.sh"
 }
 
@@ -57,6 +57,7 @@ copies_all_skills_with_supporting_files() {
 
 skips_folders_without_skill_md() {
   run_sync all || fail "sync exited non-zero" || return 1
+  assert_no_path "$DST/.claude/skills/sync" &&
   assert_no_path "$DST/.claude/skills/scripts" &&
   assert_no_path "$DST/.claude/skills/tests" &&
   assert_no_path "$DST/.claude/skills/.github"
