@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tests for scripts/targets-matrix.sh. Run: bash tests/targets-matrix.test.sh
+# Tests for scripts/targets-matrix.sh. Run: bash sync/tests/targets-matrix.test.sh
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

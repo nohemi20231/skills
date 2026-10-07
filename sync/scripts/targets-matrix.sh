@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Turn sync-targets.yml into a GitHub Actions matrix: one JSON entry per
+# Turn sync/targets.yml into a GitHub Actions matrix: one JSON entry per
 # repo and branch, with defaults filled in.
 #
-# Usage: targets-matrix.sh [sync-targets.yml]
+# Usage: targets-matrix.sh [sync/targets.yml]
 set -euo pipefail
 
-file="${1:-sync-targets.yml}"
+file="${1:-sync/targets.yml}"
 
 # GitHub runners ship mikefarah/yq; the Python yq wrapper emits JSON by default.
 if yq --version 2>&1 | grep -q mikefarah; then
