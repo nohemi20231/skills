@@ -1,0 +1,108 @@
+name: Sync skills
+
+# Copies skills into every repo in sync-targets.yml and opens (or updates) one
+# pull request per repo and branch. Needs a GitHub App installed on the target
+# repos, with its ID in the SKILLS_SYNC_APP_ID variable and its private key in
+# the SKILLS_SYNC_PRIVATE_KEY secret. See README.md.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-skills
+  cancel-in-progress: false
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
+  plan:
+    needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      count: ${{ steps.matrix.outputs.count }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: matrix
+        name: Read sync-targets.yml
+        run: |
+          matrix="$(bash scripts/targets-matrix.sh sync-targets.yml)"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "count=$(jq length <<<"$matrix")" >> "$GITHUB_OUTPUT"
+          echo "Targets: $(jq length <<<"$matrix")"
+
+  sync:
+    needs: plan
+    if: needs.plan.outputs.count != '0'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    name: ${{ matrix.target.repo }} ${{ matrix.target.branch || '(default branch)' }}
+    steps:
+      - id: names
+        name: Work out names
+        env:
+          TARGET_REPO: ${{ matrix.target.repo }}
+          TARGET_BRANCH: ${{ matrix.target.branch }}
+        run: |
+          branch="${TARGET_BRANCH:-default}"
+          echo "owner=${TARGET_REPO%%/*}" >> "$GITHUB_OUTPUT"
+          echo "repo=${TARGET_REPO#*/}" >> "$GITHUB_OUTPUT"
+          echo "pr_branch=bot/skills-sync-${branch//\//-}" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            echo "version=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - id: token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.SKILLS_SYNC_APP_ID }}
+          private-key: ${{ secrets.SKILLS_SYNC_PRIVATE_KEY }}
+          owner: ${{ steps.names.outputs.owner }}
+          repositories: ${{ steps.names.outputs.repo }}
+
+      - uses: actions/checkout@v4
+        with:
+          path: source
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.target.repo }}
+          ref: ${{ matrix.target.branch }}
+          token: ${{ steps.token.outputs.token }}
+          path: target
+
+      - name: Copy skills
+        env:
+          SKILLS: ${{ matrix.target.skills }}
+          SKILLS_DEST: ${{ matrix.target.dest }}
+        run: bash source/scripts/sync-skills.sh source target "$SKILLS"
+
+      - name: Open or update pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ steps.token.outputs.token }}
+          path: target
+          base: ${{ matrix.target.branch }}
+          branch: ${{ steps.names.outputs.pr_branch }}
+          delete-branch: true
+          add-paths: ${{ matrix.target.dest }}
+          commit-message: "Sync agent skills to ${{ steps.names.outputs.version }}"
+          title: "Sync agent skills to ${{ steps.names.outputs.version }}"
+          body: |
+            Automated update of the shared agent skills in `${{ matrix.target.dest }}`, from [${{ github.repository }}@${{ steps.names.outputs.version }}](${{ github.server_url }}/${{ github.repository }}/tree/${{ github.sha }}).
+
+            Claude Code and GitHub Copilot both read skills from this folder, so they pick up the change once this is merged and developers pull.
+
+            Skills listed in `.skills-sync-managed` are owned by the skills repo; edit them there, because changes made here are overwritten on the next sync. Other skills in the folder are left alone.
