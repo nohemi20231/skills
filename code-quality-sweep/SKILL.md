@@ -9,6 +9,8 @@ A periodic sweep over work in progress. Each run looks only at what is new since
 
 Run it from the session where the work happens, so it sees uncommitted changes. A fresh clone sees only commits.
 
+Skip the run, after Phase 0 has recorded the snapshot, when the session diff touches only docs, config, generated files or files matching `ignore`, or when it is over 2,000 lines. Say which in the report. A day of refactoring scored in one go produces nonsense; score it in smaller sessions instead.
+
 ## State
 
 All state lives in `.claude/sweep/` in the app repo. Create the folder and the files on the first run.
@@ -22,6 +24,8 @@ All state lives in `.claude/sweep/` in the app repo. Create the folder and the f
 | `flow.md` | Mermaid diagram of the components the session touched and how calls and data flow between them. | yes |
 | `next-prompt.md` | Open design questions, each with a prompt ready to paste. Rewritten each run. | no |
 | `ignore` | Globs, one per line, that the co-change miner skips: manifests, lockfiles, config, generated files, registries, changelogs, CI. Seeded on the first run, edited by hand after. | yes |
+| `test-command` | The command that runs one module's tests, with `{module}` where the module path goes. Detected on the first run from the build files (Maven, Gradle, npm, Go, Cargo, pytest), then edited by hand. Every Phase 3a test run uses this and nothing else. | yes |
+| `cochange.tsv` | The co-change miner's cache: `<head-commit>` on the first line, then `<file-a> <file-b> <count>` pairs and a `hub <file>` line per hub. Rebuilt on the first run of the day, extended with newer commits after. | no |
 
 Add the uncommitted files to `.gitignore` on the first run if they are not already ignored.
 
@@ -81,7 +85,7 @@ Launch three subagents in parallel. They are read-only: they must not create, ed
    - A three-to-eight-line summary of the session so far, for `session-summary.md`.
 
 2. **Co-change miner**: What has history to say about these files?
-   - For every file in the session diff, mine the last 200 commits: `git log -200 --name-only --format='commit %h'`.
+   - On the first run of the day, mine the last 200 commits: `git log -200 --name-only --format='commit %h'`, and write the pair counts and hubs to `cochange.tsv` with the head commit on the first line. On later runs read the cache and add only commits newer than that head. History barely moves between runs; this is the expensive subagent and it should cost once a day.
    - Drop files matching a glob in `.claude/sweep/ignore` before counting. These co-commit with everything and say nothing about design.
    - Drop hub files: any file that co-commits with more than 20 distinct files in the window is a hub, not a partner. Report the hubs found so new ones can be added to `ignore`. A file that pairs with the same few files every time is not a hub; that is real coupling and stays in.
    - Count pairs of the remaining files that appear in the same commit. Report pairs that include a file from the session diff and co-commit three or more times.
@@ -95,7 +99,7 @@ Launch three subagents in parallel. They are read-only: they must not create, ed
 
 ## Phase 2: Score (main agent)
 
-Score each candidate from 0 to 3 on the checklist below. A candidate is a class, a group of files, a new class or a new field.
+Score each candidate from 0 to 3 on the checklist below. A candidate is a class, a group of files, a new class or a new field. Give each an id from what it is, not when it was found, for example `group:Order.discountCode`, `class:PercentDiscount`, `tests:InvoiceRenderer`, so the same candidate gets the same id on every run.
 
 **Group that changes together but lives apart**
 - Session: a field, the methods that set or read it, and the tests for them were all touched this session, and they are spread across more than one class or module: +1.
@@ -125,16 +129,17 @@ An action is mechanical when it is one of: move a field and its accessors into t
 
 For each mechanical action, in score order:
 
-1. Run the test suite for the affected module. If it is red before the change, skip the action and record why in `next-prompt.md`. The sweep never starts from red.
+0. Skip the action if any file in its group was modified in the last five minutes (`find <files> -mmin -5`). The user may be mid-edit in it. Skip it too if the same candidate id has been reverted twice today, per `decisions.md`; it becomes a question. Say in the report which actions were skipped and why.
+1. Run the module's tests with the command in `test-command`. If it is red before the change, skip the action and record why in `next-prompt.md`. The sweep never starts from red.
 2. Launch one subagent per action, in parallel when they touch different files, sequentially when they overlap. Give it the action, the files, and the test command. It makes the smallest change that completes the grouping, runs the same tests, and reports the diff and the test output.
-3. If the tests are green after the change, keep it and add a dated entry to `decisions.md`: what was grouped, why (the score lines that fired), and the files. If they are red, revert the change with `git checkout -- <files>` for tracked files, delete any file the subagent created, and write the action up as a design question instead.
+3. If the tests are green after the change, keep it and add a dated entry to `decisions.md` with the candidate id: what was grouped, why (the score lines that fired), and the files. If they are red, revert the change with `git checkout -- <files>` for tracked files, delete any file the subagent created, log a `reverted <id>` entry, and write the action up as a design question instead.
 4. Never skip, disable or quarantine a test to get green. Never touch files outside the action.
 
 ## Phase 3b: Design questions
 
-Rewrite `next-prompt.md`. For each question, in score order:
+Rewrite `next-prompt.md`. Leave out any candidate whose id appears in a `decisions.md` entry marked `answered <id>` or `grouped <id>`; the user has decided, and re-asking is noise. For each remaining question, in score order:
 
-- One line naming the candidate and the score lines that fired.
+- One line with the candidate id and the score lines that fired.
 - The question in one sentence. Use the ones from the checklist: what problem does this class solve, is this a variant of an existing type, what does this field represent, should these move together.
 - A prompt the user can paste as-is to resolve it, naming the files and the two or three options, and asking for the smallest change. Prefer the `research-approve-build-verify` skill when the answer would touch several modules.
 
@@ -148,6 +153,22 @@ Run the three updates in parallel; they touch different files.
 
 Append the change summarizer's table to `counts.tsv`.
 
+## Worked example
+
+The session adds a discount to an orders service: `Order` gains a `discountCode` field, `OrderService.applyDiscount()` sets it, `InvoiceRenderer` reads it, `OrderServiceTest` gains two tests, and a new `PercentDiscount` sits next to an existing `FixedDiscount`.
+
+Phase 1: the change summarizer reports `InvoiceRenderer` changed with no test and `PercentDiscount` as a variant of `FixedDiscount`. The miner reports `OrderService.java` and `InvoiceRenderer.java` co-committing 6 times across two packages. The decision reviewer finds last week's entry "discounts are computed in the service, the renderer only formats" bent by the renderer now reading the code.
+
+Phase 2:
+
+| id | Lines that fired | Score |
+|---|---|---|
+| `group:Order.discountCode` | set in one class, read in another +1; co-commit 6 times +2 | 3 |
+| `tests:InvoiceRenderer` | 1 method changed, no test +1 | 1 |
+| `class:PercentDiscount` | variant of existing type +1 | 1 |
+
+Phase 3a: `group:Order.discountCode` is mechanical. Tests green before, a subagent extracts a `Discount` value object set in the service and read by the renderer, tests green after, `decisions.md` gets `grouped group:Order.discountCode` with the two score lines. Phase 3b: the two score-1 items only get a summary line; the bent decision becomes the one question in `next-prompt.md`, with a prompt offering to move the check into the service or revise the decision. Phase 4: `flow.md` gains a `Discount` node between service and renderer.
+
 ## Phase 5: Report
 
 End with a short report, under 15 lines:
@@ -155,6 +176,7 @@ End with a short report, under 15 lines:
 - Since: previous snapshot time, baseline time
 - Changed: classes and modules touched this run, one line each
 - Grouped: actions applied, with test counts before and after
+- Skipped: actions held back by the quiet period or the revert limit
 - Questions: one line each, pointing at `next-prompt.md`
 - Drift: decisions reversed, diagram changes
 - Nothing new: say so when Phase 0 stopped the run

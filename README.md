@@ -7,6 +7,8 @@ Agent skills for Claude Code and GitHub Copilot, one folder per skill, each with
 | `research-approve-build-verify/` | Adds a feature to an existing app: parallel read-only research, design approval gate, TDD build, fresh-context QA, evidence report. |
 | `code-quality-sweep/` | Periodic sweep over work in progress: diffs since the last run, scores changes for things that change together but live apart, groups them when tests stay green, logs decisions, keeps a flow diagram current. |
 
+Before scheduling `code-quality-sweep` on a repo, run it by hand for a day with Phase 3a actions off and read what scores 3. Then switch actions on and tune the thresholds in its checklist. The 3, 5 and 20 in there are starting guesses.
+
 ## Layout
 
 ```
