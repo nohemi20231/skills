@@ -5,11 +5,13 @@ Agent skills for Claude Code and GitHub Copilot, one folder per skill, each with
 | Skill | What it does |
 |---|---|
 | `research-approve-build-verify/` | Adds a feature to an existing app: parallel read-only research, design approval gate, TDD build, fresh-context QA, evidence report. |
+| `code-quality-sweep/` | Periodic sweep over work in progress: diffs since the last run, scores changes for things that change together but live apart, groups them when tests stay green, logs decisions, keeps a flow diagram current. |
 
 ## Layout
 
 ```
 research-approve-build-verify/   one folder per skill, each with a SKILL.md
+code-quality-sweep/
 sync/                            tooling that delivers skills to app repos
   targets.yml                    which app repos get which skills
   scripts/                       sync script and target parser
