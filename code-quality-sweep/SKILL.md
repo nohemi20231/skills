@@ -21,8 +21,39 @@ All state lives in `.claude/sweep/` in the app repo. Create the folder and the f
 | `decisions.md` | Design decisions, one dated entry each. Reversals link the entry they reverse. | yes |
 | `flow.md` | Mermaid diagram of the components the session touched and how calls and data flow between them. | yes |
 | `next-prompt.md` | Open design questions, each with a prompt ready to paste. Rewritten each run. | no |
+| `ignore` | Globs, one per line, that the co-change miner skips: manifests, lockfiles, config, generated files, registries, changelogs, CI. Seeded on the first run, edited by hand after. | yes |
 
 Add the uncommitted files to `.gitignore` on the first run if they are not already ignored.
+
+Seed `ignore` on the first run with the patterns below, then let the team edit it:
+
+```
+pom.xml
+build.gradle*
+package.json
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+go.mod
+go.sum
+requirements*.txt
+Cargo.lock
+**/application*.yml
+**/application*.properties
+.env*
+**/*.generated.*
+**/*.pb.*
+**/openapi*.{yml,yaml,json}
+**/__snapshots__/**
+**/*Module.java
+**/*Config.java
+**/routes.*
+CHANGELOG.md
+README.md
+.github/**
+Makefile
+.*rc
+```
 
 ## Phase 0: Hash gate (main agent, no subagents)
 
@@ -51,7 +82,9 @@ Launch three subagents in parallel. They are read-only: they must not create, ed
 
 2. **Co-change miner**: What has history to say about these files?
    - For every file in the session diff, mine the last 200 commits: `git log -200 --name-only --format='commit %h'`.
-   - Count pairs of files that appear in the same commit. Report pairs that include a file from the session diff and co-commit three or more times.
+   - Drop files matching a glob in `.claude/sweep/ignore` before counting. These co-commit with everything and say nothing about design.
+   - Drop hub files: any file that co-commits with more than 20 distinct files in the window is a hub, not a partner. Report the hubs found so new ones can be added to `ignore`. A file that pairs with the same few files every time is not a hub; that is real coupling and stays in.
+   - Count pairs of the remaining files that appear in the same commit. Report pairs that include a file from the session diff and co-commit three or more times.
    - For each pair, say whether the two files live in the same module, package or folder.
    - Report files from the session diff that have no co-change history, so a new grouping is not confused with a recurring one.
 
