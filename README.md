@@ -5,11 +5,13 @@ Agent skills for Claude Code and GitHub Copilot, one folder per skill, each with
 | Skill | What it does |
 |---|---|
 | `research-approve-build-verify/` | Adds a feature to an existing app: parallel read-only research, design approval gate, TDD build, fresh-context QA, evidence report. |
+| `test-driven-development/` | Red-green-refactor discipline for any feature or bug fix: failing test first, minimal code, refactor; plus rules for honest tests and mocks. From obra/superpowers (MIT), see its `SOURCE.md`. |
 
 ## Layout
 
 ```
 research-approve-build-verify/   one folder per skill, each with a SKILL.md
+test-driven-development/
 sync/                            tooling that delivers skills to app repos
   targets.yml                    which app repos get which skills
   scripts/                       sync script and target parser
