@@ -9,6 +9,14 @@ A workflow for adding a feature to a codebase that already works and must keep w
 
 Skip this workflow for one-line fixes, config tweaks or small isolated changes; use a single agent with TDD instead. Use it when the feature touches several files, modules or services.
 
+## Phase 0: Sync (two minutes, every session)
+
+Before any research: `git fetch`, `gh pr list`, `git log --oneline main..HEAD`, and read the resume line in `docs/architecture/STATE.md`. When another Claude session may be working on the same repo, check which branches it owns and agree that only one session merges to main. A slice, a refactor PR and a design map all start from this known state; skipping it cost the 2026-10-30 session several rounds of "was it pushed, was it approved".
+
+## Approval mode
+
+Each checkpoint shows the recommended option first. When the user has said "auto-approve" (or "continue with my recommended options") for the session, the recommended option counts as approved: record the decision in `docs/architecture/STATE.md` with the date and move on. Contract changes and anything hard to reverse still wait for the user.
+
 ## Phase 1: Parallel read-only research
 
 Before editing anything, launch three subagents in parallel. They are read-only: they must not create, edit or delete files. Give each the feature request and ask for a concise written report with file paths and line references.
@@ -52,7 +60,7 @@ After approval:
 1. Write the new tests from the approved test plan first. Run them and confirm they fail for the expected reason.
 2. Implement the smallest change that makes them pass, following the conventions the mapper found.
 3. Run the full relevant test suite, not just the new tests.
-4. Refactor for clarity while keeping tests green.
+4. Refactor for clarity while keeping tests green. Run the `clean-code` checklist over every file the slice touched here, inside the slice, so the PR carries its own clean-up; a separate clean-code audit after the PR means a second PR and a second design map for the same change.
 5. Update docs, API specs (e.g. OpenAPI) and the manual test matrix.
 
 Stay within the approved design. If implementation reveals the design will not work as approved, stop and report the problem with a proposed adjustment. Do not improvise a different design.
@@ -81,6 +89,8 @@ End with a short report:
 - Validation evidence: commands run, test counts, pass/fail results
 - QA findings and how each was resolved
 - Anything deferred or still open
+
+Then one PR and one design map (`pr-design-map`) per slice. Small behavior-preserving refactors that fall out of the review go in the same PR when the same suite guards them; a separate PR only when a contract changes.
 
 ## Rules throughout
 
