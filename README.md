@@ -69,7 +69,7 @@ To try a skill in every project on your own machine without waiting for a sync, 
 
 ```bash
 mkdir -p ~/.claude/skills
-ln -s ~/workspace/agents/skills/research-approve-build-verify ~/.claude/skills/research-approve-build-verify
+ln -s ~/workspace/tooling/skills/research-approve-build-verify ~/.claude/skills/research-approve-build-verify
 ```
 
 Restart Claude Code, then run `/research-approve-build-verify`.
