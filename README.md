@@ -80,3 +80,7 @@ Restart Claude Code, then run `/research-approve-build-verify`.
 bash sync/tests/sync-skills.test.sh
 bash sync/tests/targets-matrix.test.sh
 ```
+
+## License
+
+Copyright 2026 Nohemi Gonzalez Lopez. Licensed under the [Apache License, Version 2.0](LICENSE), except [`test-driven-development/`](test-driven-development/), which is copied from [obra/superpowers](https://github.com/obra/superpowers) under the MIT License ([`test-driven-development/LICENSE`](test-driven-development/LICENSE)). Keep the [`NOTICE`](NOTICE) file when redistributing.
