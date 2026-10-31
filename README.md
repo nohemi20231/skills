@@ -5,11 +5,13 @@ Agent skills for Claude Code and GitHub Copilot, one folder per skill, each with
 | Skill | What it does |
 |---|---|
 | `research-approve-build-verify/` | Adds a feature to an existing app: parallel read-only research, design approval gate, TDD build, fresh-context QA, evidence report. |
+| `pr-design-map/` | Builds a visual, color-coded, dyslexia-friendly design map of a pull request: diagrams, JSON, type hierarchies, a tile per file with line counts and links to the changes. |
 
 ## Layout
 
 ```
 research-approve-build-verify/   one folder per skill, each with a SKILL.md
+pr-design-map/
 sync/                            tooling that delivers skills to app repos
   targets.yml                    which app repos get which skills
   scripts/                       sync script and target parser
