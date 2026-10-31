@@ -5,13 +5,11 @@ Agent skills for Claude Code and GitHub Copilot, one folder per skill, each with
 | Skill | What it does |
 |---|---|
 | `research-approve-build-verify/` | Adds a feature to an existing app: parallel read-only research, design approval gate, TDD build, fresh-context QA, evidence report. |
-| `test-driven-development/` | Red-green-refactor discipline for any feature or bug fix: failing test first, minimal code, refactor; plus rules for honest tests and mocks. From obra/superpowers (MIT), see its `SOURCE.md`. |
 
 ## Layout
 
 ```
 research-approve-build-verify/   one folder per skill, each with a SKILL.md
-test-driven-development/
 sync/                            tooling that delivers skills to app repos
   targets.yml                    which app repos get which skills
   scripts/                       sync script and target parser
@@ -20,6 +18,8 @@ sync/                            tooling that delivers skills to app repos
 ```
 
 Any top-level folder with a `SKILL.md` is a skill. Add a skill by adding a folder next to the existing ones.
+
+Only skills I wrote live here. Third-party skills I use are listed, with author, source and license, in [`THIRD_PARTY_SKILLS.md`](THIRD_PARTY_SKILLS.md).
 
 ## How app repos get these skills
 
@@ -80,3 +80,7 @@ Restart Claude Code, then run `/research-approve-build-verify`.
 bash sync/tests/sync-skills.test.sh
 bash sync/tests/targets-matrix.test.sh
 ```
+
+## License
+
+Copyright 2026 Nohemi Gonzalez Lopez. Licensed under the [Apache License, Version 2.0](LICENSE). Keep the [`NOTICE`](NOTICE) file when redistributing. Third-party skills listed in [`THIRD_PARTY_SKILLS.md`](THIRD_PARTY_SKILLS.md) are not part of this repo and keep their own licenses.

@@ -1,1 +1,4 @@
 .DS_Store
+
+# Third-party skills are used locally, not published here. See THIRD_PARTY_SKILLS.md.
+test-driven-development/
