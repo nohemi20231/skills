@@ -277,3 +277,18 @@ list-assistant to `sync/targets.yml` so the existing workflow finally has a targ
 - **L-004 (one fix per commit, named with its finding; scope changes get a decision id).** This
   PR is one commit, docs only. Each increment above is its own PR; its scope decisions (questions
   1-8) get ids `D-SS-001…` in the PR body when answered.
+
+## 7. Decisions (answered 2026-10-31)
+
+| Id | Question | Decision |
+|---|---|---|
+| D-SS-001 | 1 private wording | **D1.** One private patch per skill, kept outside this repo and applied when the upload zip is built. The drift check compares the claude.ai copy against the patched output. |
+| D-SS-002 | 2 claude.ai-only skills | `agent-grade-and-learn` moves to a private repo with the same `sync/` layout. `nohemi-code-design` is superseded and gets deleted in claude.ai. |
+| D-SS-003 | 3 list-assistant | Add `nohemi20231/list-assistant` to `sync/targets.yml`; the same PR checks that the GitHub App is installed. |
+| D-SS-004 | 4 where C runs | In `wip` only: one line per drifted skill, silent when all match. No hook, no RABV step. |
+| D-SS-005 | 5 Mac symlink | Yes. `~/.claude/skills/pr-design-map -> <repo>/pr-design-map`, same pattern as `research-approve-build-verify`. Done 2026-10-31. |
+| D-SS-006 | 6 frontmatter quoting | Run the experiment once: upload a zip whose frontmatter is unquoted, diff the mirror next session. Until the result is in, the check normalizes quoting in frontmatter values. |
+| D-SS-007 | 7 yq | Installed on the Mac (`brew install yq`, v4.54.1); both test suites pass locally (12 + 7). |
+| D-SS-008 | 8 trigger | `v*` tags only. No `push: branches: [main]` trigger. |
+
+Increment 1 stays as in § 4: `sync/scripts/check-drift.sh` + `sync/tests/check-drift.test.sh` + README section; `wip` calls the script (D-SS-004). Increment 2: `build-zips.sh --overlay DIR` (D-SS-001, D-SS-006). Increment 3: `targets.yml` entry (D-SS-003). The private repo (D-SS-002) is its own task.
