@@ -9,7 +9,10 @@ For every PR, build one page that shows the design as the code stands on the PR'
 
 ## Readability (check every time, before publishing)
 
-- Fonts: Lexend for all text (headings, body, tables, diagrams, buttons) and JetBrains Mono for code, both with letter-spacing 0.02em so letters are not close together. Embed both fonts in the page as base64 woff2 @font-face (latin 400 and 700, from the npm @fontsource packages), so they show the same everywhere. No italics anywhere.
+- Fonts: Lexend for all text (headings, body, tables, diagrams, buttons) and JetBrains Mono for code, both with letter-spacing 0.02em so letters are not close together. Embed both fonts in the page as base64 woff2 @font-face (latin 400 and 700, from the npm @fontsource packages), so they show the same everywhere. No italics anywhere. If a local fonts file exists (for example `~/.claude/skill-updates/design-map-fonts.css`), paste only its four `@font-face` blocks; never a surrounding style block, which can carry overrides such as `--code-bg` that break the navy code background.
+- JSON tile themes: under the Background row, a "JSON tiles:" row with two buttons, saved in localStorage like the background, Cell type by default:
+  - Cell type: the "New and modified in this PR" tile font as a named style, `:root{--cell-font:var(--font-mono);--cell-size:15px;--cell-weight:400;--cell-spacing:.02em}`, used by `.grid .cell`. JSON tiles under `html[data-json="cell"] pre.json` use `--cell-font`, 16px, weight 400 everywhere (no bold), letter-spacing .07em, word-spacing .08em, line-height 1.95.
+  - Classic: the original JSON tile look, unchanged.
 - Sizes: body 18px, line-height 1.7; code 16px, line-height 1.8; tables 16px, table headers 17px. SVG diagrams as displayed: box titles about 22px, subtitles 16-17px, arrow labels 16-18px bold. Never below 14px.
 - Bold text is never small: legend labels 15px, pills / badges / chips / status tags 15-16px with roomy padding, buttons 16px bold, tile headings 19-22px.
 - No white anywhere. Under the title, a "Background:" row of three buttons with color swatches, saved in localStorage (try/catch), Lavender by default:
@@ -24,7 +27,13 @@ For every PR, build one page that shows the design as the code stands on the PR'
   - Bold key words in paragraphs and lists: pastel yellow #fff1a6 (dark: #5a4a00, text #fff1a8).
 - Diagram labels are one or two words; long lists go in a "Who talks to whom" table under the diagram. Labels never overlap lines or each other (halo in the background color, never a colored glow). Route lines around boxes.
 - Code is laid out one statement per line, blank lines between steps, short comment above each part. Variable names say what they hold (current / restored, not before / after).
-- Screenshot every page in all three backgrounds (Playwright) and look at it before publishing. Fix anything small, clipped, overlapping, glaring or white.
+- Screenshot every page in all three backgrounds and look at it before publishing. Fix anything small, clipped, overlapping, glaring or white. The page script accepts `?theme=light|sand|dark` (light = Lavender) so each background can be shot directly. Use Playwright when it is installed; without Playwright or node (for example on macOS), use headless Chrome plus `sips` (crop offset 1, because offset 0 crops the center):
+
+```
+CH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+"$CH" --headless=new --disable-gpu --hide-scrollbars --window-size=1300,22000 --screenshot=shot.png "file://$PWD/page.html?theme=sand"
+sips -c 2000 1300 --cropOffset 1 0 shot.png --out top.png
+```
 
 ## Colors (same meaning everywhere)
 
@@ -60,7 +69,7 @@ Every place that names a file lets the reader open it. Build the links from the 
 ## Steps
 
 1. Read the PR (number, URL, branch, head commit, date, diff, and the PR's files list with lines added and removed per file), count each file's lines at the head commit, then read the whole affected modules and the design docs on that branch. Note the session URL (and name, if known) for the header.
-2. Build the page as one self-contained HTML file, run the readability check, check that links open the right file or diff, fix issues.
+2. Build the page as one self-contained HTML file. Start from the previous map's page (same app, latest PR) and replace its content; build from scratch only for the first map of an app. One map per slice or feature PR; a follow-up refactor PR that only applies the previous map's proposals gets a short section added to that map, not a new page. Run the readability check, check that links open the right file or diff, fix issues.
 3. Publish it titled `<App> Design Map: PR #<n>` (as a hosted page or artifact where your tool offers one, otherwise as an HTML file); republish if the PR already has one. Set the header's Updated time to when you publish.
 4. Reply with one line and the link.
 
