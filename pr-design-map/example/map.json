@@ -1,0 +1,54 @@
+{
+  "app": "List Assistant",
+  "updated": "1 Nov 2026 · 9:40 PM CT",
+  "session": { "url": "https://claude.ai/code/session/abcdef1234", "id": "abcdef1234" },
+  "modules": [
+    { "name": "cli", "color": "pink" },
+    { "name": "domain", "color": "blue" },
+    { "name": "storage", "color": "green" },
+    { "name": "db", "color": "brown" }
+  ],
+  "layers": ["handler", "model", "repository", "schema"],
+  "notes": {
+    "src/cli/commands/add_task.py": { "module": "cli", "layer": "handler", "class": "AddTaskCommand", "change": "new command",
+      "lines": ["Parses **title** and optional **due** date", "Calls TaskService.add and prints the TaskId"],
+      "code": { "lang": "python", "added": [1,2,3,4,5,6,7,8,9,10,11], "text": "class AddTaskCommand:\n\n    # one list, one new task\n    def run(self, args: Namespace) -> TaskId:\n\n        # build the task from the parsed args\n        task = Task.new(title=args.title, due=args.due)\n\n        # save and report\n        saved = self.repo.save(task)\n        return saved.id" } },
+    "src/cli/parser.py": { "module": "cli", "layer": "handler", "class": "Parser", "change": "registers add" },
+    "src/domain/task.py": { "module": "domain", "layer": "model", "class": "Task", "change": "status field",
+      "code": { "lang": "python", "changed": [6], "added": [7,8], "text": "@dataclass\nclass Task:\n    id: TaskId\n    title: str\n    due: date | None\n    status: TaskStatus = TaskStatus.OPEN\n    # set when status becomes DONE\n    done_at: datetime | None = None" } },
+    "src/storage/task_repo.py": { "module": "storage", "layer": "repository", "class": "TaskRepo", "change": "save writes status" },
+    "migrations/0004_task_status.sql": { "module": "db", "layer": "schema", "kind": "table", "class": "tasks", "change": "status column",
+      "code": { "lang": "sql", "added": [1,2,3], "text": "ALTER TABLE tasks\n  ADD COLUMN status TEXT NOT NULL DEFAULT 'open',\n  ADD COLUMN done_at TIMESTAMP NULL;" } }
+  },
+  "sections": [
+    { "type": "sequence", "title": "One request end to end", "files": ["src/cli/commands/add_task.py", "src/domain/task.py", "src/storage/task_repo.py"],
+      "actors": [ { "name": "User", "color": "gray" }, { "name": "cli", "sub": "AddTaskCommand", "color": "pink" }, { "name": "domain", "sub": "Task", "color": "blue" }, { "name": "storage", "sub": "TaskRepo", "color": "green" } ],
+      "steps": [
+        { "from": "User", "to": "cli", "label": "add", "value": "\"buy milk\" --due 2026-11-03" },
+        { "from": "cli", "to": "domain", "label": "Task.new", "value": "title, due" },
+        { "from": "domain", "to": "cli", "label": "Task", "value": "status OPEN", "reply": true },
+        { "from": "cli", "to": "storage", "label": "save", "value": "Task" },
+        { "from": "storage", "to": "cli", "label": "TaskId", "value": "T104", "reply": true },
+        { "from": "cli", "to": "User", "label": "print", "value": "Added T104", "reply": true }
+      ] },
+    { "type": "json", "title": "The JSON", "files": ["src/domain/task.py"],
+      "items": [
+        { "title": "Task on disk", "color": "blue", "value": { "id": "T104", "title": "buy milk", "due": "2026-11-03", "status": "open", "done_at": null } },
+        { "title": "add command input", "color": "pink", "value": { "command": "add", "title": "buy milk", "due": "2026-11-03", "list": "?" }, "unknown": ["list"] }
+      ] },
+    { "type": "modules", "title": "Modules and layers", "files": ["src/cli/parser.py"],
+      "edges": [ { "from": "cli", "to": "domain", "label": "Task.new" }, { "from": "cli", "to": "storage", "label": "save" }, { "from": "storage", "to": "db", "label": "INSERT" } ],
+      "table": { "columns": ["Caller", "Callee", "What"], "rows": [["cli", "domain", "Task.new(title, due)"], ["cli", "storage", "TaskRepo.save(task)"], ["storage", "db", "INSERT INTO tasks"]] } },
+    { "type": "tree", "title": "Type hierarchy", "files": ["src/domain/task.py"],
+      "roots": [ { "name": "Command", "color": "pink", "children": [ { "name": "AddTaskCommand", "sub": "NEW" }, { "name": "ListCommand" }, { "name": "DoneCommand" } ] },
+                 { "name": "TaskStatus", "color": "blue", "children": [ { "name": "OPEN" }, { "name": "DONE" } ] } ] },
+    { "type": "table", "title": "Result matrix", "columns": ["Command", "Valid input", "Missing title", "Bad date"], "rows": [["add", "✓", "✗", "✗"], ["list", "✓", "✓", "✓"], ["done", "✓", "✗", "✓"]] },
+    { "type": "file-tiles", "title": "Classes" },
+    { "type": "lifecycle", "title": "Task lifecycle", "files": ["src/domain/task.py"], "states": ["OPEN", "DONE"], "transitions": [ { "from": "OPEN", "to": "DONE", "label": "done" }, { "from": "DONE", "to": "OPEN", "label": "reopen" } ] },
+    { "type": "proposal", "title": "Proposed changes",
+      "current": { "title": "Status as a string column", "lines": ["**status** is free text in the table"], "code": { "lang": "sql", "text": "status TEXT NOT NULL DEFAULT 'open'" } },
+      "options": [ { "title": "O1 enum check", "color": "green", "lines": ["CHECK constraint on **status**"], "code": { "lang": "sql", "added": [2], "text": "status TEXT NOT NULL DEFAULT 'open'\n  CHECK (status IN ('open','done'))" } } ],
+      "comparison": { "columns": ["Option", "Rejects bad values", "Migration"], "rows": [["current", "✗", "none"], ["O1", "✓", "one ALTER"]] },
+      "decisions": [ { "title": "D1 add the CHECK", "recommended": true, "lines": ["Pick **O1**", "No code change until approved"] } ] }
+  ]
+}
