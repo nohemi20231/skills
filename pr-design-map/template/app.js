@@ -93,7 +93,7 @@
 
   /* ---------- prose highlights ---------- */
   const HL = /\*\*(.+?)\*\*|\b([A-Z][a-z0-9]+(?:[A-Z][a-z0-9]*)+)\b|\b([A-Z][A-Z0-9_]{2,})\b|\b([A-Z]{1,3}-[A-Z]?\d{1,4}[a-z]?|[VDOR]\d{1,4})\b|\b(\d+(?:\.\d+)?)\b/g;
-  const SKIP = 'pre,code,a,h1,h2,h3,.pill,.chip,.count,.btn,.legend,.tag,.nav,.meta,.row,svg,.tile>h3,.path';
+  const SKIP = 'pre,code,a,h1,h2,h3,.pill,.chip,.count,.btn,.legend,.tag,.nav,.meta,.row,svg,.tile>h3,.path,.grid';
   function highlightProse(root) {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => n.parentElement.closest(SKIP) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
     const nodes = []; while (walker.nextNode()) nodes.push(walker.currentNode);
@@ -242,6 +242,10 @@
   function filesGrid() {
     const mods = M.modules || [], layers = M.layers || [];
     const g = h('div', { class: 'grid' }); g.style.gridTemplateColumns = `150px repeat(${mods.length}, minmax(0,1fr))`;
+    // a column needs 190px to be read; narrower than that (a phone, a side panel, many modules) the grid becomes a list
+    const need = 150 + 190 * mods.length;
+    const fitList = () => g.classList.toggle('list', g.clientWidth < need);
+    if (window.ResizeObserver) new ResizeObserver(fitList).observe(g); else { window.addEventListener('resize', fitList); requestAnimationFrame(fitList); }
     g.append(h('div'));
     mods.forEach((m, i) => { const d = h('div', { class: 'head' }, m.name); d.style.setProperty('--col', color(m.color, i)); g.append(d); });
     layers.forEach(layer => {

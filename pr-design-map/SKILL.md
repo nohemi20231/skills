@@ -44,7 +44,7 @@ example/    files.json  map.json                    a complete worked example
 
    `build.sh` fails if the merge lacks app, PR facts, sections or files. Look at the 2000px crops it produced (rebuilt sections only, in an incremental run), fix map.json, rebuild. Never open the full-height raster.
 
-6. **Publish from disk**, titled `<App> Design Map: PR #<n>`: `out/index.html`, `style.css`, `app.js`, `data.js`, `map.json`, `files.json` and `fonts/*.woff2` on the first publish of an app; on a republish `data.js`, `map.json` and `files.json` alone (the template and fonts are already there). Use a file-based publish so no bytes pass through the model. A follow-up refactor PR that only applies the previous map's proposals adds a section to that map, not a new page.
+6. **Publish from disk**, titled `<App> Design Map: PR #<n>`: `out/index.html`, `style.css`, `app.js`, `data.js`, `map.json`, `files.json` and `fonts/*.woff2` on the first publish of an app; on a republish `data.js`, `map.json` and `files.json` alone (the template and fonts are already there), plus `style.css` and `app.js` whenever the template changed since the page was last published. Use a file-based publish so no bytes pass through the model. A follow-up refactor PR that only applies the previous map's proposals adds a section to that map, not a new page.
 
 7. Reply with one line and the link.
 
