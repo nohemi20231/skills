@@ -21,5 +21,8 @@ jobs:
       - name: Target matrix tests
         run: bash sync/tests/targets-matrix.test.sh
 
+      - name: Changelog check tests
+        run: bash ci/tests/check-changelog.test.sh
+
       - name: sync/targets.yml is valid
         run: bash sync/scripts/targets-matrix.sh sync/targets.yml
