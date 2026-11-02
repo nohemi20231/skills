@@ -17,6 +17,7 @@ sync/                            tooling that delivers skills to app repos
   targets.yml                    which app repos get which skills
   scripts/                       sync script and target parser
   tests/                         tests for both
+ci/                              CHANGELOG check run on pull requests, and its tests
 .github/workflows/               sync and test workflows (GitHub requires this path)
 ```
 
@@ -45,7 +46,7 @@ The whole repo has one version, `MAJOR.MINOR.PATCH`:
 - **MINOR**: a new skill, or a new step or behavior in an existing one.
 - **PATCH**: wording fixes and clarifications that don't change behavior, and fixes to the sync tooling.
 
-1. Every PR that changes a skill or the sync tooling adds a line under `## Unreleased` in [`CHANGELOG.md`](CHANGELOG.md). Tests run on every PR.
+1. Every PR that changes a skill or the sync tooling (`sync/` apart from its tests, and the sync workflow) adds a line under `## Unreleased` in [`CHANGELOG.md`](CHANGELOG.md). The **Changelog** check fails the PR when that line is missing. For a change that needs no line, add the `skip-changelog` label. Tests run on every PR.
 2. To release, a PR moves those lines under a new `## X.Y.Z - <title> (<date>)` heading. Merge it.
 3. Tag the merge commit and publish the release:
    ```bash
@@ -93,6 +94,7 @@ Restart Claude Code, then run `/research-approve-build-verify`.
 ```bash
 bash sync/tests/sync-skills.test.sh
 bash sync/tests/targets-matrix.test.sh
+bash ci/tests/check-changelog.test.sh
 ```
 
 ## License
