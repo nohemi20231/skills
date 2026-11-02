@@ -99,4 +99,4 @@ bash ci/tests/check-changelog.test.sh
 
 ## License
 
-[MIT](LICENSE). Third-party skills listed in [`THIRD_PARTY_SKILLS.md`](THIRD_PARTY_SKILLS.md) are not part of this repo and keep their own licenses.
+Copyright 2026 Nohemi Gonzalez Lopez. Licensed under the [Apache License, Version 2.0](LICENSE). Keep the [`NOTICE`](NOTICE) file when redistributing. Third-party skills listed in [`THIRD_PARTY_SKILLS.md`](THIRD_PARTY_SKILLS.md) are not part of this repo and keep their own licenses.
