@@ -209,7 +209,7 @@
     const tb = h('table');
     if (t.columns) tb.append(h('thead', {}, h('tr', {}, t.columns.map(c => h('th', {}, c)))));
     tb.append(h('tbody', {}, (t.rows || []).map(r => h('tr', {}, r.map((c, j) => { const td = h('td', {}, String(c)); if (c === '✓' || c === 'yes') td.className = 'yes'; if (c === '✗' || c === 'no') td.className = 'no'; if (j === 0) td.style.fontWeight = '700'; return td; })))));
-    return tb;
+    return h('div', { class: 'scroll' }, tb);   // a wide table scrolls inside its wrapper on a phone instead of widening the page
   }
   function tile(t, i) {
     const el = h('div', { class: 'tile' + (t.recommended ? ' recommended' : '') });
@@ -248,7 +248,7 @@
       g.append(h('div', { class: 'side' }, layer));
       mods.forEach((m, i) => {
         const fs = files().filter(f => note(f).module === m.name && note(f).layer === layer);
-        const cell = h('div', { class: 'cell' + (fs.length ? '' : ' empty') }); cell.style.setProperty('--col', color(m.color, i));
+        const cell = h('div', { class: 'cell' + (fs.length ? '' : ' empty'), 'data-module': m.name }); cell.style.setProperty('--col', color(m.color, i));
         if (!fs.length) cell.append('no change');
         fs.forEach(f => { const n = note(f); const mark = isNew(f) ? '+ ' : isMod(f) ? '✎ ' : ''; cell.append(h('div', {}, `${mark}${f.path.split('/').pop()}${n.change ? ' · ' + n.change : ''}`, (isNew(f) || isMod(f)) ? miniPill(f) : null)); });
         g.append(cell);

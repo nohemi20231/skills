@@ -60,7 +60,7 @@ a{color:var(--link-ink)}
 .sw{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:700}
 .sw i{display:inline-block;width:18px;height:18px;border-radius:5px;border:2px solid var(--border)}
 .sw.edge i{background:var(--tile);border-left-width:6px}
-.codekey{display:inline-flex;gap:10px;background:var(--code-bg);color:var(--code-plain);padding:6px 12px;border-radius:8px;font:400 15px var(--font-mono)}
+.codekey{display:inline-flex;flex-wrap:wrap;gap:6px 10px;background:var(--code-bg);color:var(--code-plain);padding:6px 12px;border-radius:8px;font:400 15px var(--font-mono)}
 
 /* Nav */
 .nav{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 6px}
@@ -106,6 +106,8 @@ html[data-json="cell"] pre.json{font:var(--cell-weight) 16px/1.95 var(--cell-fon
 html[data-json="cell"] pre.json .kw{font-weight:400}
 
 /* Tables */
+.scroll{overflow-x:auto;margin:12px 0}
+.scroll table{margin:0}
 table{border-collapse:separate;border-spacing:0;width:100%;background:var(--tile);border:2px solid var(--border);border-radius:12px;overflow:hidden;font-size:16px;margin:12px 0}
 th{background:var(--thead);font-size:17px;text-align:left;padding:10px 14px;border-bottom:2px solid var(--border)}
 td{padding:9px 14px;border-bottom:1px solid var(--border);vertical-align:top}
@@ -134,4 +136,16 @@ svg .lane{stroke:var(--border);stroke-width:2px;stroke-dasharray:6 6}
 
 .muted{color:var(--muted)}
 .sr{position:absolute;left:-9999px}
-@media (max-width:800px){body{padding:16px}.tiles .tile{flex-basis:100%}.legend{grid-template-columns:1fr}}
+/* Phones: one column everywhere; nothing widens the page. Code blocks, figures and tables scroll inside their own box. */
+@media (max-width:800px){
+  body{padding:16px 16px 60px}
+  h1{font-size:28px}
+  .tiles .tile{flex-basis:100%}
+  .legend{grid-template-columns:minmax(0,1fr);gap:6px 0}
+  .legend .k{margin-top:6px}
+  /* the module × layer grid becomes a list: each layer, then its changed files, each cell labelled with its module */
+  .grid{grid-template-columns:minmax(0,1fr) !important}
+  .grid>div:first-child,.grid .head,.grid .cell.empty{display:none}
+  .grid .side{font-size:17px;padding:10px 0 0}
+  .grid .cell::before{content:attr(data-module);display:inline-block;font:700 15px/1.3 var(--font-text);letter-spacing:.03em;border:2px solid var(--col);border-radius:999px;padding:2px 11px;margin-bottom:6px}
+}

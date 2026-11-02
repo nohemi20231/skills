@@ -22,6 +22,7 @@
 - Diagram labels are one or two words; long lists go in a "Who talks to whom" table under the diagram. Labels never overlap lines or each other (halo in the background color, never a colored glow). Route lines around boxes.
 - Code is laid out one statement per line, blank lines between steps, short comment above each part. Variable names say what they hold (current / restored, not before / after).
 - Screenshots: `scripts/shoot.sh` shoots the three backgrounds at a bounded height and crops 2000px slices. Look at crops only, never the full raster.
+- Phones (800px and under): one column everywhere and nothing widens the page. The legend stacks, the tiles stack, the "New and modified" grid becomes a list (each layer, then its changed files, each cell labelled with a module chip; empty cells and the module header row are hidden), and tables sit in a scrolling wrapper (`.scroll`). Code blocks and figures scroll inside their own box rather than shrinking text.
 
 
 ## Colors (same meaning everywhere)
