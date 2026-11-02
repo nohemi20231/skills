@@ -75,7 +75,7 @@ The workflow writes to other repos, so it authenticates as a GitHub App rather t
 1. Create a GitHub App (**Settings → Developer settings → GitHub Apps → New GitHub App**, or under the organization's settings for org repos). Turn off the webhook. Give it **Repository permissions**: Contents *Read and write*, Pull requests *Read and write*.
 2. Generate a private key for the app.
 3. Install the app on the app repos that should receive skills. For repos in an organization, an org owner installs it there.
-4. In this repo, add the app's ID as the **variable** `SKILLS_SYNC_APP_ID` and the private key as the **secret** `SKILLS_SYNC_PRIVATE_KEY` (**Settings → Secrets and variables → Actions**).
+4. In this repo, add the app's **Client ID** (shown on the app's settings page) as the **variable** `SKILLS_SYNC_CLIENT_ID` and the private key as the **secret** `SKILLS_SYNC_PRIVATE_KEY` (**Settings → Secrets and variables → Actions**).
 5. In each app repo, consider turning on **Automatically delete head branches**, and adding a `CODEOWNERS` entry for `.claude/skills/` so hand edits to synced skills get noticed.
 
 ## Personal install
