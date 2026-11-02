@@ -1,0 +1,10 @@
+{
+  "pr": { "number": 12, "url": "https://github.com/example/list-assistant/pull/12", "owner": "example", "repo": "list-assistant", "branch": "feature/add-task", "head": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678", "base": "main", "date": "2026-11-01" },
+  "files": [
+    { "path": "src/cli/commands/add_task.py", "status": "added", "added": 48, "removed": 0, "lines": 48, "anchor": "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0" },
+    { "path": "src/cli/parser.py", "status": "modified", "added": 9, "removed": 2, "lines": 131, "anchor": "1a2b3c4d5e6f70819203a4b5c6d7e8f91a2b3c4d5e6f70819203a4b5c6d7e8f9" },
+    { "path": "src/domain/task.py", "status": "modified", "added": 22, "removed": 4, "lines": 96, "anchor": "2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a" },
+    { "path": "src/storage/task_repo.py", "status": "modified", "added": 14, "removed": 19, "lines": 135, "anchor": "3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b" },
+    { "path": "migrations/0004_task_status.sql", "status": "added", "added": 11, "removed": 0, "lines": 11, "anchor": "4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c" }
+  ]
+}

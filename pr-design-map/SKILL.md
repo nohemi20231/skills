@@ -5,76 +5,53 @@ description: Use whenever a pull request is opened or updated, or someone asks f
 
 # PR design map (visual only)
 
-For every PR, build one page that shows the design as the code stands on the PR's branch. Visuals and code only: no explanatory paragraphs, no figure captions. The page is made to be easy to read for everyone, including people with dyslexia and people who take in structure best through color and pattern: big, well-spaced fonts, no white glare, diagrams and tiles instead of prose. Colors, highlights and repeated patterns make structure easy to see, so every kind of thing gets a consistent color.
+For every PR, one page that shows the design as the code stands on the PR's branch. Visuals and code only: no explanatory paragraphs, no figure captions. Big, well-spaced fonts, no white glare, diagrams and tiles instead of prose, one consistent color per kind of thing.
 
-## Readability (check every time, before publishing)
-
-- Fonts: Lexend for all text (headings, body, tables, diagrams, buttons) and JetBrains Mono for code, both with letter-spacing 0.02em so letters are not close together. Embed both fonts in the page as base64 woff2 @font-face (latin 400 and 700, from the npm @fontsource packages), so they show the same everywhere. No italics anywhere. If a local fonts file exists (for example `~/.claude/skill-updates/design-map-fonts.css`), paste only its four `@font-face` blocks; never a surrounding style block, which can carry overrides such as `--code-bg` that break the navy code background.
-- JSON tile themes: under the Background row, a "JSON tiles:" row with two buttons, saved in localStorage like the background, Cell type by default:
-  - Cell type: the "New and modified in this PR" tile font as a named style, `:root{--cell-font:var(--font-mono);--cell-size:15px;--cell-weight:400;--cell-spacing:.02em}`, used by `.grid .cell`. JSON tiles under `html[data-json="cell"] pre.json` use `--cell-font`, 16px, weight 400 everywhere (no bold), letter-spacing .07em, word-spacing .08em, line-height 1.95.
-  - Classic: the original JSON tile look, unchanged.
-- Sizes: body 18px, line-height 1.7; code 16px, line-height 1.8; tables 16px, table headers 17px. SVG diagrams as displayed: box titles about 22px, subtitles 16-17px, arrow labels 16-18px bold. Never below 14px.
-- Bold text is never small: legend labels 15px, pills / badges / chips / status tags 15-16px with roomy padding, buttons 16px bold, tile headings 19-22px.
-- No white anywhere. Under the title, a "Background:" row of three buttons with color swatches, saved in localStorage (try/catch), Lavender by default:
-  - Lavender: page #cbc4e0; tiles, panels, figures, tables, legend, buttons #dfdaee; table headers #d3cce8; borders #b9b0d6.
-  - Sand: page #e3d9c6; tiles, panels, figures, tables, legend, buttons #ede5d6; table headers #e6dcc8; borders #cdbf9f.
-  - Dark: dark page, bright text (#f5f7fa).
-- Highlight important words in normal text with PASTEL blocks, a different color per kind of word (same color = same kind, everywhere), bold, 4px radius, small padding. Do it automatically with a small script over text outside code, headings, links, pills and the legend; tile headings are not highlighted. Show the highlight colors in the legend ("Highlights" row).
-  - Type and class names (CamelCase): pastel blue #bfe3ff (dark: #1f4a6b, text #d6eeff).
-  - CONSTANT names: pastel pink #ffc9e0 (dark: #6b2448, text #ffe0ee).
-  - Version and decision ids (V104, D1, O5): pastel green #c8f2c8 (dark: #245c2e, text #dcffdc).
-  - Numbers: pastel peach #ffdcb8 (dark: #6b3d12, text #ffe9d2).
-  - Bold key words in paragraphs and lists: pastel yellow #fff1a6 (dark: #5a4a00, text #fff1a8).
-- Diagram labels are one or two words; long lists go in a "Who talks to whom" table under the diagram. Labels never overlap lines or each other (halo in the background color, never a colored glow). Route lines around boxes.
-- Code is laid out one statement per line, blank lines between steps, short comment above each part. Variable names say what they hold (current / restored, not before / after).
-- Screenshot every page in all three backgrounds and look at it before publishing. Fix anything small, clipped, overlapping, glaring or white. The page script accepts `?theme=light|sand|dark` (light = Lavender) so each background can be shot directly. Use Playwright when it is installed; without Playwright or node (for example on macOS), use headless Chrome plus `sips` (crop offset 1, because offset 0 crops the center):
+The page is a fixed template plus data. You write **map.json** only. Git writes **files.json**. The template renders both.
 
 ```
-CH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-"$CH" --headless=new --disable-gpu --hide-scrollbars --window-size=1300,22000 --screenshot=shot.png "file://$PWD/page.html?theme=sand"
-sips -c 2000 1300 --cropOffset 1 0 shot.png --out top.png
+template/   index.html, style.css, app.js, fonts/   the components (never edited per PR)
+scripts/    pr-files.sh  build.sh  shoot.sh         git facts, assembly, screenshots
+reference/  map-schema.md  style-rules.md           what map.json may contain; what the template enforces
+example/    files.json  map.json                    a complete worked example
 ```
-
-## Colors (same meaning everywhere)
-
-- Code blocks: soft navy background (#1b2232) in every background. Plain words (variables, punctuation) soft blue-gray (#c9d3e8), never white. Keywords hot pink bold (#ff4fa3), type names light blue regular weight (#6cc9ee, not bold), method calls yellow (#ffd84a), strings green (#7dff7a), numbers and arrows orange (#ffa04a), comments lavender (#c9b8ff). New = solid yellow block with black text; changed = solid orange block with black text. Color code tokens automatically with a small tokenizer script. Show a code color key in the legend.
-- Text tiles (cards, build steps, decisions, opportunities, roadmap phases): colored BORDER only. A 2px border in the tile's color and an 8px left edge in the same color. The inside uses the background's tile color with normal ink text and headings: no tinted background, no colored heading. Cycle a bright palette (pink #ff4fa3, blue #2bb3e8, gold #f2b705, green #2fbf4a, orange #ff8a3d, purple #9b6bff) so neighbouring tiles differ, or color by meaning when the tiles have a category (module, kind, status).
-- One color per module or external system (for example red, purple, green, orange, blue, brown, gray) for diagram boxes, arrows (color of the caller) and code-block edges.
-- One color per command or use case, reused in result matrices and lifecycles.
-- Build status colors: built green, next orange, increment 2 purple, increment 3 red.
-- Links: one look everywhere, a pill (Lexend 15px bold, letter-spacing 0.03em, padding 4px 13px) with a 2px link-blue border #2bb3e8 on the tile color, text dark blue #065a86 in Lavender and Sand, #8fdcff in Dark, ending in ↗. Inside a link, lines added are green (#13802b; dark #7dff7a) and lines removed are red (#c0262d; dark #ff9a9a), both bold.
-- Line-count pill: the Numbers peach, #ffdcb8 with #111 text (dark: #6b3d12 with #ffe9d2), same size as the link pills.
-- A legend at the top lists all of these, including a "Links" row: a sample line-count pill ("lines in the file"), "View file ↗", and "View changes +14 −19 ↗" ("added · removed in this PR").
-
-## Links to the code (every page)
-
-Every place that names a file lets the reader open it. Build the links from the PR itself; never guess a path.
-
-- The PR: `https://github.com/<owner>/<repo>/pull/<n>`.
-- A file's changes in this PR: `https://github.com/<owner>/<repo>/pull/<n>/files#diff-<sha256 of the file path>` (the hex SHA-256 of the repo-relative path, e.g. `printf '%s' "$path" | sha256sum`).
-- The whole file as it stands in the PR: `https://github.com/<owner>/<repo>/blob/<head sha>/<path>`.
-- All links open in a new tab (`target="_blank" rel="noopener"`). Links, pills and chips are skipped by the auto-highlight script.
-- Line counts: for every file, its total lines at the PR's head commit, and for new or modified files the lines added and removed in this PR (from the PR's files list). Take them from the code and the PR; never estimate.
-
-## Sections, in order
-
-1. Header: title, then a meta line: PR number as a link pill to the PR, branch, short sha, date, file count with +added −removed, then "Updated <date · time · zone>" (the reader's local time zone, e.g. "31 Oct 2026 · 1:30 PM CT", the time you publish) followed by a link pill to the agent session that made or last updated the page, when the session has a URL, labelled with the session's name if known, otherwise "session <first 8 characters of its id>". Never invent a session name. Then background buttons, legend, nav.
-2. One request end to end: SVG sequence diagram of a real input, value at each hop.
-3. The JSON: every JSON format with real example values, new JSON shapes as trees (what is not understood yet in red), then the same command in each of its shapes.
-4. Modules and layers SVG. Directly BELOW it: "New and modified in this PR" as a grid with the diagram's layout (columns = modules, rows = layers; + new, ✎ modified with what changed; "no change" cells). One line per file, and each + / ✎ line ends with a small link pill "+18 −4 ↗" that opens that file's changes in the PR.
-5. Type hierarchies and the result matrix.
-6. Classes: one tile per file, grouped by module and layer; NEW tag on new classes; highlighted lines for additions. Each tile's heading row: class name, layer chip or NEW / ✎ modified chip, then on the right a line-count pill ("135 lines") and link pills "View file ↗" (whole file in the PR) and, for new or modified files, "View changes +14 −19 ↗" (that file's diff in the PR). Lifecycle SVG for entities with statuses. One tile per DB table / migration, with the same pills.
-7. Proposed changes (when a design problem is worth fixing): CURRENT design first, then each MODIFIED option stacked BELOW it (never side by side), each with the code that uses it, then a comparison table and decision tiles with the recommended option marked. No code changes until the user approves.
 
 ## Steps
 
-1. Read the PR (number, URL, branch, head commit, date, diff, and the PR's files list with lines added and removed per file), count each file's lines at the head commit, then read the whole affected modules and the design docs on that branch. Note the session URL (and name, if known) for the header.
-2. Build the page as one self-contained HTML file. Start from the previous map's page (same app, latest PR) and replace its content; build from scratch only for the first map of an app. One map per slice or feature PR; a follow-up refactor PR that only applies the previous map's proposals gets a short section added to that map, not a new page. Run the readability check, check that links open the right file or diff, fix issues.
-3. Publish it titled `<App> Design Map: PR #<n>` (as a hosted page or artifact where your tool offers one, otherwise as an HTML file); republish if the PR already has one. Set the header's Updated time to when you publish.
-4. Reply with one line and the link.
+1. **Facts from git, not from reading.** In the app repo:
+
+   ```
+   scripts/pr-files.sh <repo-dir> <pr-number> files.json
+   ```
+
+   It writes PR number, URL, owner, repo, branch, head sha, base, date, and for every changed file its status, lines added and removed, total lines at head, and the SHA-256 diff anchor. Never type any of these by hand.
+
+2. **Scope.** Find the previous map for the app (title `<App> Design Map: PR #`). Read its `map.json` (a few KB), never its page. Compare:
+   - Same PR, new head: `git diff --name-only <previous head>..<head>`. Empty: update `updated` only. Otherwise rewrite only the sections whose `files` intersect the changed files, and the `notes` of those files.
+   - New PR with a previous map: copy `modules`, `layers` and the structural sections (modules, tree, lifecycle, result matrix) whose `files` do not intersect this PR's diff; write new `sequence`, `json` and `notes`; `file-tiles` and the grid rebuild themselves from `files.json`.
+   - No previous map: write map.json from scratch, starting from `example/map.json`.
+
+3. **Read only what the rewritten sections need.** The diff, the files in it, and their direct importers and callees found by grep. Not whole modules. `wc -l` first; a file over 400 lines in parts; never generated, vendored or minified files. Design docs only when they name a file in the diff.
+
+4. **Write map.json** per `reference/map-schema.md`. Short labels, two to five word `change` notes, code one statement per line with a short comment above each part. Every path in `notes` and `files` must appear in `files.json`. Note the session URL (and name, if known) in `session`; never invent a name. Set `updated` to the publish time in the reader's zone, e.g. `31 Oct 2026 · 1:30 PM CT`.
+
+5. **Build and check.**
+
+   ```
+   scripts/build.sh out/ files.json map.json
+   scripts/shoot.sh out/
+   ```
+
+   `build.sh` fails if the merge lacks app, PR facts, sections or files. Look at the 2000px crops it produced (rebuilt sections only, in an incremental run), fix map.json, rebuild. Never open the full-height raster.
+
+6. **Publish from disk**, titled `<App> Design Map: PR #<n>`: `out/index.html`, `style.css`, `app.js`, `data.js`, `map.json`, `files.json` and `fonts/*.woff2` on the first publish of an app; on a republish `data.js`, `map.json` and `files.json` alone (the template and fonts are already there). Use a file-based publish so no bytes pass through the model. A follow-up refactor PR that only applies the previous map's proposals adds a section to that map, not a new page.
+
+7. Reply with one line and the link.
 
 ## Rules
 
-- Everything shown must come from the code or design docs on the branch. Don't invent classes, fields, paths, line counts or links.
-- Short labels in diagrams and short comments in code only; no paragraphs.
-- When the user comments on a page, fix that spot, republish, and answer in the comment thread.
+- Everything shown must come from `files.json`, the code or the design docs on the branch. Don't invent classes, fields, paths, counts or links.
+- Nothing bulky goes through the model: no base64, no whole-file pastes, no full-height screenshots, no reading a rendered page. Compute on disk, publish from disk.
+- Never restyle per PR. Styling lives in the template; a style change is a template change with `reference/style-rules.md` as the spec.
+- Proposals (section type `proposal`) are design only. No code changes until the user approves.
+- When the user comments on a page, fix that spot in map.json, rebuild, republish the data files, and answer in the comment thread.
