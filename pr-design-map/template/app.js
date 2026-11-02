@@ -1,8 +1,11 @@
-/* PR design map renderer. Reads window.MAP (data.js) and builds the page.
-   The agent writes map.json; scripts/pr-files.sh writes files.json; build.sh merges them into data.js. */
+/* PR design map renderer. The agent writes map.json; scripts/pr-files.sh writes files.json; build.sh embeds
+   both in the page as JSON blocks (#files-json, #map-json), and this merges them, map over files. */
 (function () {
   'use strict';
-  const M = window.MAP || {};
+  const embedded = id => { const el = document.getElementById(id); return el ? JSON.parse(el.textContent) : {}; };
+  const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
+  const merge = (a, b) => { const out = { ...a }; for (const k in b) out[k] = isObj(a[k]) && isObj(b[k]) ? merge(a[k], b[k]) : b[k]; return out; };
+  const M = window.MAP || merge(embedded('files-json'), embedded('map-json'));
   const COLORS = { pink: '#ff4fa3', blue: '#2bb3e8', gold: '#f2b705', green: '#2fbf4a', orange: '#ff8a3d', purple: '#9b6bff', red: '#e0383e', brown: '#a0683a', gray: '#7a7f8c' };
   const CYCLE = ['pink', 'blue', 'gold', 'green', 'orange', 'purple'];
   const color = (c, i) => COLORS[c] || c || COLORS[CYCLE[(i || 0) % CYCLE.length]];
@@ -65,30 +68,37 @@
     }
     return out.join('');
   }
+  /* One line of a code or JSON block. Long lines wrap inside the tile (never a sideways scroll): the leading
+     indent becomes --i (in characters) and a wrapped part hangs two characters further in, so a line's
+     added / changed / unknown color covers all of its text. */
+  const line = (indent, html, cls) => `<span class="ln${cls ? ' ' + cls : ''}" style="--i:${indent}">${html || ' '}</span>`;
+  const indentOf = l => { const m = l.match(/^[ \t]*/)[0]; return { n: m.replace(/\t/g, '    ').length, rest: l.slice(m.length) }; };
   function codeBlock(code, edge) {
     if (!code) return null;
     const lang = code.lang || '';
     const added = new Set(code.added || []), changed = new Set(code.changed || []);
     const lines = String(code.text || '').replace(/\n$/, '').split('\n');
-    const html = lines.map((l, i) => { const k = i + 1; const c = added.has(k) ? ' added' : changed.has(k) ? ' changed' : ''; return `<span class="ln${c}">${tokenizeLine(l, lang) || ' '}</span>`; }).join('');
+    const html = lines.map((l, i) => { const k = i + 1; const { n, rest } = indentOf(l); return line(n, tokenizeLine(rest, lang), added.has(k) ? 'added' : changed.has(k) ? 'changed' : ''); }).join('');
     const pre = h('pre', { class: 'code', html: `<code>${html}</code>` });
     if (edge) pre.style.setProperty('--edge', color(edge));
     return pre;
   }
   function jsonBlock(value, unknown) {
     const unk = new Set(unknown || []);
-    const render = (v, path, ind) => {
-      const pad = '  '.repeat(ind);
-      if (Array.isArray(v)) { if (!v.length) return '[]'; return '[\n' + v.map((x, i) => pad + '  ' + render(x, `${path}[${i}]`, ind + 1)).join(',\n') + '\n' + pad + ']'; }
-      if (v && typeof v === 'object') {
-        const keys = Object.keys(v); if (!keys.length) return '{}';
-        return '{\n' + keys.map(k => { const p = path ? `${path}.${k}` : k; const body = `<span class="ty">"${esc(k)}"</span>: ${render(v[k], p, ind + 1)}`; return pad + '  ' + (unk.has(p) ? `<span class="unknown">${body}</span>` : body); }).join(',\n') + '\n' + pad + '}';
-      }
-      if (typeof v === 'string') return `<span class="st">"${esc(v)}"</span>`;
-      if (typeof v === 'number') return `<span class="nm">${v}</span>`;
-      return `<span class="kw">${String(v)}</span>`;
+    const out = [];
+    const push = (ind, html, bad) => out.push(line(ind * 2, bad ? `<span class="unknown">${html}</span>` : html));
+    const scalar = v => Array.isArray(v) ? '[]' : v && typeof v === 'object' ? '{}' : typeof v === 'string' ? `<span class="st">${esc(JSON.stringify(v))}</span>` : typeof v === 'number' ? `<span class="nm">${v}</span>` : `<span class="kw">${String(v)}</span>`;
+    /* writes v starting on a line that begins with prefix; an unknown key marks every line of its value */
+    const emit = (v, path, ind, prefix, comma, bad) => {
+      const arr = Array.isArray(v) && v.length, obj = !Array.isArray(v) && v && typeof v === 'object' && Object.keys(v).length;
+      if (!arr && !obj) return push(ind, prefix + scalar(v) + comma, bad);
+      push(ind, prefix + (arr ? '[' : '{'), bad);
+      if (arr) v.forEach((x, i) => emit(x, `${path}[${i}]`, ind + 1, '', i < v.length - 1 ? ',' : '', bad));
+      else Object.keys(v).forEach((k, i, keys) => { const p = path ? `${path}.${k}` : k; emit(v[k], p, ind + 1, `<span class="ty">${esc(JSON.stringify(k))}</span>: `, i < keys.length - 1 ? ',' : '', bad || unk.has(p)); });
+      push(ind, (arr ? ']' : '}') + comma, bad);
     };
-    return h('pre', { class: 'json', html: `<code>${render(value, '', 0)}</code>` });
+    emit(value, '', 0, '', '', false);
+    return h('pre', { class: 'json', html: `<code>${out.join('')}</code>` });
   }
 
   /* ---------- prose highlights ---------- */
@@ -106,11 +116,11 @@
 
   /* ---------- SVG helpers ---------- */
   const NS = 'http://www.w3.org/2000/svg';
-  const sv = (tag, attrs, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs || {}) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; };
-  function svgRoot() { const s = sv('svg'); const d = sv('defs'); d.innerHTML = Object.entries(COLORS).map(([k, v]) => `<marker id="arr-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${v}"/></marker>`).join(''); s.append(d); return s; }
-  /* viewBox fitted to what was drawn (y0..y1), so a figure carries no empty bands.
+  const sv = (tag, attrs, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs || {}) if (attrs[k] != null) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; };
+  function svgRoot() { const s = sv('svg'); const d = sv('defs'); d.innerHTML = Object.entries(COLORS).map(([k, v]) => `<marker id="arr-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="${v}"/></marker>`).join(''); s.append(d); return s; }
+  /* viewBox fitted to what was drawn (y0..y1), so a figure carries no empty bands; aspect-ratio keeps the height in step when max-width shrinks it.
      The figure may shrink a wide diagram to 87.5% at most (16px text stays at 14px); past that it scrolls. */
-  function fit(svg, w, y0, y1) { const hgt = Math.round(y1 - y0); svg.setAttribute('viewBox', `0 ${Math.round(y0)} ${w} ${hgt}`); svg.setAttribute('width', w); svg.setAttribute('height', hgt); svg.style.minWidth = `${Math.round(w * 0.875)}px`; }
+  function fit(svg, w, y0, y1) { const hgt = Math.round(y1 - y0); svg.setAttribute('viewBox', `0 ${Math.round(y0)} ${w} ${hgt}`); svg.setAttribute('width', w); svg.setAttribute('height', hgt); svg.style.aspectRatio = `${w} / ${hgt}`; svg.style.minWidth = `${Math.round(w * 0.875)}px`; }
   const markerFor = c => `url(#arr-${Object.keys(COLORS).find(k => COLORS[k] === c) || 'gray'})`;
   function label(svg, x, y, text, cls) { const t = sv('text', { x, y, 'text-anchor': 'middle', class: `halo ${cls || 'arrow'}` }, text); svg.append(t); return t; }
   function box(svg, x, y, w, hgt, title, sub, col) {

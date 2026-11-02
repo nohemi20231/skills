@@ -3,7 +3,7 @@
 `template/style.css` and `template/app.js` implement everything below. Read this only when changing the template; map.json never carries styling.
 ## Readability (check every time, before publishing)
 
-- Fonts: Lexend for all text and JetBrains Mono for code, letter-spacing 0.02em, no italics. Shipped as four woff2 files under `fonts/` (latin 400 and 700 from the npm @fontsource packages), never base64. Local builds load them by relative path; the published page (`scripts/single.sh`) loads the same families from Google Fonts instead, because Safari blocks an artifact's sub-file requests and a multi-file publish renders blank there.
+- Fonts: Lexend for all text and JetBrains Mono for code, letter-spacing 0.02em, no italics. Kept as four woff2 files under `fonts/` (latin 400 and 700 from the npm @fontsource packages); `build.sh` inlines them into the page as data: URIs on disk, so the bytes never pass through the model.
 - JSON tile themes: under the Background row, a "JSON tiles:" row with two buttons, saved in localStorage like the background, Cell type by default:
   - Cell type: the "New and modified in this PR" tile font as a named style, `:root{--cell-font:var(--font-mono);--cell-size:15px;--cell-weight:400;--cell-spacing:.02em}`, used by `.grid .cell`. JSON tiles under `html[data-json="cell"] pre.json` use `--cell-font`, 16px, weight 400 everywhere (no bold), letter-spacing .07em, word-spacing .08em, line-height 1.95.
   - Classic: the original JSON tile look, unchanged.
@@ -21,8 +21,8 @@
   - Bold key words in paragraphs and lists: pastel yellow #fff1a6 (dark: #5a4a00, text #fff1a8).
 - Diagram labels are one or two words; long lists go in a "Who talks to whom" table under the diagram. Labels never overlap lines or each other (halo in the background color, never a colored glow). Route lines around boxes.
 - Code is laid out one statement per line, blank lines between steps, short comment above each part. Variable names say what they hold (current / restored, not before / after).
+- Code and JSON blocks never scroll sideways. A long line wraps inside the tile; the wrapped part hangs two characters further in than its line, and the line's color (added yellow, changed orange, unknown key red) covers every wrapped part. Indentation comes from the leading spaces (tab = 4), rendered as padding.
 - Screenshots: `scripts/shoot.sh` shoots the three backgrounds at a bounded height and crops 2000px slices. Look at crops only, never the full raster.
-- Publishing: `scripts/single.sh out/` inlines style.css, data.js and app.js into `out/single.html`; that one file is what gets published.
 - Phones (800px and under): one column everywhere and nothing widens the page. The legend stacks, the tiles stack, and tables sit in a scrolling wrapper (`.scroll`). Code blocks and figures scroll inside their own box rather than shrinking text.
 - The "New and modified" grid needs 190px a module column. When the grid itself is narrower than that (a phone, a side panel, many modules), app.js adds `.list` and it becomes a list: each layer, then its changed files, each cell labelled with a module chip; empty cells and the module header row are hidden. Module headers wrap rather than overlap. Nothing inside the grid is auto-highlighted.
 
@@ -44,3 +44,11 @@
 - Every SVG figure's viewBox is fitted to what was drawn (`fit()` in app.js): no empty band above or below a diagram. Four module or state boxes (210px, 100px gaps) fit the 1196px figure unscaled; a wider diagram may shrink to 87.5% at most (16px text stays at 14px) and scrolls inside its figure past that (`min-width` on the svg).
 - Arc labels never sit on their line: a skip arc's label is above its apex (below it for a return arc), a between-rows S-curve's label is above its flat middle or right of it when the line is nearly vertical, a self-loop's label is above the loop on the top-left corner of the box; skip arcs leave from right of center, so the two never cross.
 - The file path under a tile heading wraps anywhere (`.tile .path`) and is never highlighted; a narrow tile never clips it.
+
+## Safari and older browsers
+
+- One self-contained `index.html`, nothing loaded by relative path: claude.ai shows "This browser isn't supported" for multi-file artifacts in older Safari.
+- Diagram `<svg>` carries `aspect-ratio` from its viewBox, so a diagram shrunk by `max-width` keeps its proportions in every engine.
+- Arrow markers use `orient="auto"` (all arrows are marker-end); `word-break:break-word` sits before `overflow-wrap:anywhere` for Safari before 15.4.
+- Dark sets `color-scheme:dark`, so scrollbars and form controls follow it.
+- Check a template change in WebKit as well as Chromium.
