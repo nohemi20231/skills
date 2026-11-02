@@ -93,7 +93,7 @@
 
   /* ---------- prose highlights ---------- */
   const HL = /\*\*(.+?)\*\*|\b([A-Z][a-z0-9]+(?:[A-Z][a-z0-9]*)+)\b|\b([A-Z][A-Z0-9_]{2,})\b|\b([A-Z]{1,3}-[A-Z]?\d{1,4}[a-z]?|[VDOR]\d{1,4})\b|\b(\d+(?:\.\d+)?)\b/g;
-  const SKIP = 'pre,code,a,h1,h2,h3,.pill,.chip,.count,.btn,.legend,.tag,.nav,.meta,.row,svg,.tile>h3';
+  const SKIP = 'pre,code,a,h1,h2,h3,.pill,.chip,.count,.btn,.legend,.tag,.nav,.meta,.row,svg,.tile>h3,.path';
   function highlightProse(root) {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => n.parentElement.closest(SKIP) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
     const nodes = []; while (walker.nextNode()) nodes.push(walker.currentNode);
@@ -107,7 +107,10 @@
   /* ---------- SVG helpers ---------- */
   const NS = 'http://www.w3.org/2000/svg';
   const sv = (tag, attrs, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs || {}) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; };
-  function svgRoot(w, hgt) { const s = sv('svg', { viewBox: `0 0 ${w} ${hgt}`, width: w, height: hgt }); const d = sv('defs'); d.innerHTML = Object.entries(COLORS).map(([k, v]) => `<marker id="arr-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${v}"/></marker>`).join(''); s.append(d); return s; }
+  function svgRoot() { const s = sv('svg'); const d = sv('defs'); d.innerHTML = Object.entries(COLORS).map(([k, v]) => `<marker id="arr-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${v}"/></marker>`).join(''); s.append(d); return s; }
+  /* viewBox fitted to what was drawn (y0..y1), so a figure carries no empty bands.
+     The figure may shrink a wide diagram to 87.5% at most (16px text stays at 14px); past that it scrolls. */
+  function fit(svg, w, y0, y1) { const hgt = Math.round(y1 - y0); svg.setAttribute('viewBox', `0 ${Math.round(y0)} ${w} ${hgt}`); svg.setAttribute('width', w); svg.setAttribute('height', hgt); svg.style.minWidth = `${Math.round(w * 0.875)}px`; }
   const markerFor = c => `url(#arr-${Object.keys(COLORS).find(k => COLORS[k] === c) || 'gray'})`;
   function label(svg, x, y, text, cls) { const t = sv('text', { x, y, 'text-anchor': 'middle', class: `halo ${cls || 'arrow'}` }, text); svg.append(t); return t; }
   function box(svg, x, y, w, hgt, title, sub, col) {
@@ -118,34 +121,53 @@
 
   /* boxes in a row with labelled arrows; used by modules and lifecycle diagrams */
   function boxesDiagram(nodes, edges) {
-    const W = 220, H = 84, GAP = 130, perRow = Math.min(nodes.length, 4);
+    const W = 210, H = 84, GAP = 100, perRow = Math.min(nodes.length, 4);   // four boxes fit the 1196px figure unscaled
     const rows = Math.ceil(nodes.length / perRow), ROWH = 230;
-    const width = perRow * W + (perRow - 1) * GAP + 40, height = 90 + (rows - 1) * ROWH + H + 130;
-    const svg = svgRoot(width, height);
+    const width = perRow * W + (perRow - 1) * GAP + 40;
+    const svg = svgRoot();
     const pos = {};
-    nodes.forEach((n, i) => { const r = Math.floor(i / perRow), c = i % perRow; const x = 20 + c * (W + GAP), y = 90 + r * ROWH; pos[n.name] = { x, y, i, col: color(n.color, i) }; box(svg, x, y, W, H, n.name, n.sub, pos[n.name].col); });
+    let top = 90, bottom = 90 + (rows - 1) * ROWH + H;   // drawn extent; arcs and labels push it out
+    nodes.forEach((n, i) => { const r = Math.floor(i / perRow), c = i % perRow; const x = 20 + c * (W + GAP), y = 90 + r * ROWH; pos[n.name] = { x, y, i, row: r, col: color(n.color, i) }; box(svg, x, y, W, H, n.name, n.sub, pos[n.name].col); });
     const used = {};
     (edges || []).forEach(e => {
       const a = pos[e.from], b = pos[e.to]; if (!a || !b) return;
       const col = a.col, key = a.i < b.i ? `${a.i}-${b.i}` : `${b.i}-${a.i}`; used[key] = (used[key] || 0) + 1;
-      const forward = a.i < b.i, adjacent = Math.abs(a.i - b.i) === 1 && Math.floor(a.i / perRow) === Math.floor(b.i / perRow);
-      let d, lx, ly;
-      if (adjacent) { const y = a.y + H / 2 + (forward ? -12 : 12); const x1 = forward ? a.x + W : a.x, x2 = forward ? b.x : b.x + W; d = `M${x1},${y} L${x2},${y}`; lx = (x1 + x2) / 2; ly = y + (forward ? -10 : 24); }
-      else if (a === b) { d = `M${a.x + 20},${a.y} C${a.x + 20},${a.y - 60} ${a.x + 80},${a.y - 60} ${a.x + 80},${a.y}`; lx = a.x; ly = a.y - 66; }
-      else { const up = forward; const y0 = up ? a.y : a.y + H; const lift = (up ? -1 : 1) * (40 + 22 * used[key]); const x1 = a.x + W / 2 + (forward ? 30 : -30), x2 = b.x + W / 2 + (forward ? -30 : 30); d = `M${x1},${y0} C${x1},${y0 + lift} ${x2},${y0 + lift} ${x2},${up ? b.y : b.y + H}`; lx = (x1 + x2) / 2; ly = y0 + lift * 0.78 + (up ? 0 : 8); }
+      const forward = a.i < b.i, sameRow = a.row === b.row, adjacent = sameRow && Math.abs(a.i - b.i) === 1;
+      let d, lx, ly, anchor;
+      if (adjacent) {
+        // straight line between neighbours: forward above the middle, back below; label on the far side of the line
+        const y = a.y + H / 2 + (forward ? -12 : 12); const x1 = forward ? a.x + W : a.x, x2 = forward ? b.x : b.x + W;
+        d = `M${x1},${y} L${x2},${y}`; lx = (x1 + x2) / 2; ly = y + (forward ? -10 : 24);
+      } else if (a === b) {
+        // self-loop on the top-left corner, label above it
+        d = `M${a.x + 20},${a.y} C${a.x + 20},${a.y - 60} ${a.x + 80},${a.y - 60} ${a.x + 80},${a.y}`; lx = a.x; ly = a.y - 68; anchor = 'start'; top = Math.min(top, ly - 20);
+      } else if (!sameRow) {
+        // between rows: an S-curve from the bottom of the upper box to the top of the lower one;
+        // the label sits above the flat middle of the S, or right of the line when it is nearly vertical
+        const down = a.row < b.row; const ya = down ? a.y + H : a.y, yb = down ? b.y : b.y + H; const x1 = a.x + W / 2, x2 = b.x + W / 2, ym = (ya + yb) / 2;
+        d = `M${x1},${ya} C${x1},${ym} ${x2},${ym} ${x2},${yb}`;
+        if (Math.abs(x1 - x2) < 80) { lx = Math.max(x1, x2) + 12; ly = ym + 6; anchor = 'start'; } else { lx = (x1 + x2) / 2; ly = ym - 10; }
+      } else {
+        // skip arc over the boxes in between, leaving right of centre (so a self-loop never crosses it); label clear of the apex
+        const up = forward; const y0 = up ? a.y : a.y + H; const lift = (up ? -1 : 1) * (40 + 22 * used[key]); const apex = y0 + lift * 0.75;
+        const x1 = a.x + W / 2 + (forward ? 30 : -30), x2 = b.x + W / 2 + (forward ? -30 : 30);
+        d = `M${x1},${y0} C${x1},${y0 + lift} ${x2},${y0 + lift} ${x2},${up ? b.y : b.y + H}`; lx = (x1 + x2) / 2;
+        if (up) { ly = apex - 10; top = Math.min(top, ly - 20); } else { ly = apex + 24; bottom = Math.max(bottom, ly + 8); }
+      }
       svg.append(sv('path', { d, fill: 'none', stroke: col, 'stroke-width': 3, 'marker-end': markerFor(col) }));
-      if (e.label) { const t = label(svg, lx, ly, e.label); if (a === b) t.setAttribute('text-anchor', 'start'); }
+      if (e.label) { const t = label(svg, lx, ly, e.label); if (anchor) t.setAttribute('text-anchor', anchor); }
     });
+    fit(svg, width, top - 24, bottom + 24);
     return svg;
   }
 
   function sequenceDiagram(s) {
     const actors = s.actors || [], steps = s.steps || [];
     const LW = 210, GAP = 60, TOP = 110, STEP = 96;
-    const width = actors.length * (LW + GAP) + 20, height = TOP + steps.length * STEP + 40;
-    const svg = svgRoot(width, height);
+    const width = actors.length * (LW + GAP) + 20, height = TOP + Math.max(steps.length - 1, 0) * STEP + 60;   // last value label plus a margin
+    const svg = svgRoot();
     const cx = {};
-    actors.forEach((a, i) => { const x = 20 + i * (LW + GAP); const col = color(a.color, i); cx[a.name] = x + LW / 2; box(svg, x, 16, LW, 70, a.name, a.sub, col); svg.append(sv('line', { x1: x + LW / 2, y1: 86, x2: x + LW / 2, y2: height - 20, class: 'lane' })); cx['#' + a.name] = col; });
+    actors.forEach((a, i) => { const x = 20 + i * (LW + GAP); const col = color(a.color, i); cx[a.name] = x + LW / 2; box(svg, x, 16, LW, 70, a.name, a.sub, col); svg.append(sv('line', { x1: x + LW / 2, y1: 86, x2: x + LW / 2, y2: height - 16, class: 'lane' })); cx['#' + a.name] = col; });
     steps.forEach((st, i) => {
       const x1 = cx[st.from], x2 = cx[st.to]; if (x1 == null || x2 == null) return;
       const y = TOP + i * STEP; const col = cx['#' + st.from]; const dir = x2 > x1 ? 1 : -1;
@@ -153,6 +175,7 @@
       const mx = (x1 + x2) / 2; label(svg, mx, y - 12, st.label || '');
       if (st.value) label(svg, mx, y + 28, st.value, 'sub');
     });
+    fit(svg, width, 0, height);
     return svg;
   }
 
@@ -163,13 +186,13 @@
     roots.forEach(r => { layout(r, 0); leaf += 0.4; });
     let depth = 0; const walk = (n, f) => { f(n); (n.children || []).forEach(c => walk(c, f)); };
     roots.forEach(r => walk(r, n => { depth = Math.max(depth, n._d); }));
-    const svg = svgRoot((depth + 1) * DX + 20, leaf * DY + 40);
-    let i = 0;
+    const svg = svgRoot(); let bottom = 0;
     roots.forEach(r => walk(r, n => {
       const x = 20 + n._d * DX, y = 20 + n._y; const col = color(n.color, n._d);
-      box(svg, x, y, W, H, n.name, n.sub, col); i++;
+      box(svg, x, y, W, H, n.name, n.sub, col); bottom = Math.max(bottom, y + H);
       (n.children || []).forEach(c => { const cy = 20 + c._y + H / 2; svg.append(sv('path', { d: `M${x + W},${y + H / 2} L${x + W + 30},${y + H / 2} L${x + W + 30},${cy} L${x + DX},${cy}`, fill: 'none', stroke: col, 'stroke-width': 3, 'marker-end': markerFor(col) })); });
     }));
+    fit(svg, (depth + 1) * DX + 20, 0, bottom + 20);
     return svg;
   }
 
@@ -273,7 +296,7 @@
     const meta = h('div', { class: 'meta' }, pill(prUrl(), `PR #${M.pr.number}`), h('span', {}, M.pr.branch), h('span', { class: 'count' }, String(M.pr.head).slice(0, 7)), h('span', {}, M.pr.date), h('span', { html: `${fs.length} files <b class="add" style="color:var(--add)">+${added}</b> <b style="color:var(--del)">−${removed}</b>` }), h('span', {}, `Updated ${M.updated || ''}`));
     if (M.session && M.session.url) meta.append(pill(M.session.url, M.session.name || `session ${String(M.session.id || '').slice(0, 8)}`));
     el.append(meta);
-    el.append(h('div', { class: 'row' }, h('span', { class: 'lbl' }, 'Background:'), ...[['lavender', 'Lavender', '#cbc4e0'], ['sand', 'Sand', '#e3d9c6'], ['dark', 'Dark', '#171a24']].map(([k, n, c]) => h('button', { class: 'btn', 'data-set-theme': k, onclick: '' }, h('span', { class: 'swatch', style: `background:${c}` }), n))));
+    el.append(h('div', { class: 'row' }, h('span', { class: 'lbl' }, 'Background:'), ...[['lavender', 'Lavender', '#cbc4e0'], ['sand', 'Sand', '#e3d9c6'], ['dark', 'Dark', '#171a24']].map(([k, n, c]) => h('button', { class: 'btn', 'data-set-theme': k },h('span', { class: 'swatch', style: `background:${c}` }), n))));
     el.append(h('div', { class: 'row' }, h('span', { class: 'lbl' }, 'JSON tiles:'), ...[['cell', 'Cell type'], ['classic', 'Classic']].map(([k, n]) => h('button', { class: 'btn', 'data-set-json': k }, n))));
     el.querySelectorAll('[data-set-theme]').forEach(b => b.onclick = () => setTheme(b.dataset.setTheme));
     el.querySelectorAll('[data-set-json]').forEach(b => b.onclick = () => setJson(b.dataset.setJson));
@@ -287,7 +310,7 @@
     const sample = { path: 'x', anchor: '', added: 14, removed: 19, lines: 135 };
     const rows = [
       ['Modules', (M.modules || []).map((m, i) => sw(m.name, color(m.color, i), true))],
-      ['Files', [h('span', { class: 'chip new' }, 'NEW'), h('span', { class: 'chip mod' }, '✎ modified'), h('span', { class: 'muted' }, 'in code: '), h('span', { class: 'chip new' }, 'added line'), h('span', { class: 'chip mod' }, 'changed line')]],
+      ['Files', [h('span', { class: 'chip new' }, 'NEW'), h('span', { class: 'chip mod' }, '✎ modified'), h('span', { class: 'muted' }, 'in code: '), h('span', { class: 'codekey', html: '<span class="ln added">added line</span><span class="ln changed">changed line</span>' })]],
       ['Highlights', [hl('TypeName', 'hl-type'), hl('CONSTANT', 'hl-const'), hl('V104 · CR-P3 · IP-30', 'hl-id'), hl('42', 'hl-num'), hl('key word', 'hl-key')]],
       ['Code', [h('span', { class: 'codekey', html: '<span class="kw">keyword</span> <span class="ty">Type</span> <span class="fn">call()</span> <span class="st">"string"</span> <span class="nm">42 →</span> <span class="cm"># comment</span>' })]],
       ['Links', [countPill(sample), h('span', { class: 'muted' }, 'lines in the file'), h('span', { class: 'pill', html: 'View file ↗' }), h('span', { class: 'pill', html: `View changes ${delta(sample)} ↗` }), h('span', { class: 'muted' }, 'added · removed in this PR')]],

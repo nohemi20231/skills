@@ -28,7 +28,7 @@ The agent writes `map.json` only. `files.json` comes from `scripts/pr-files.sh` 
 { "lang": "python", "text": "one statement per line\n\n# short comment above each part\n", "added": [3, 4], "changed": [7] }
 ```
 
-Line numbers are 1-based. Added lines render solid yellow, changed lines solid orange. `lang` picks the comment marker (`#` for python, ruby, sh, yaml; `--` for sql; `//` otherwise).
+Line numbers are 1-based. Added lines get a `+` gutter mark, a yellow left bar and a faint yellow tint; changed lines a `~`, an orange bar and tint. Token colors stay. `lang` picks the comment marker (`#` for python, ruby, sh, yaml; `--` for sql; `//` otherwise).
 
 ## Section types
 
