@@ -11,7 +11,7 @@ The page is a fixed template plus data. You write **map.json** only. Git writes 
 
 ```
 template/   index.html, style.css, app.js, fonts/   the components (never edited per PR)
-scripts/    pr-files.sh  build.sh  shoot.sh         git facts, assembly, screenshots
+scripts/    pr-files.sh  build.sh  shoot.sh  extract-map.sh   git facts, assembly, screenshots, map.json back out of a page
 reference/  map-schema.md  style-rules.md           what map.json may contain; what the template enforces
 example/    files.json  map.json                    a complete worked example
 ```
@@ -26,7 +26,7 @@ example/    files.json  map.json                    a complete worked example
 
    It writes PR number, URL, owner, repo, branch, head sha, base, date, and for every changed file its status, lines added and removed, total lines at head, and the SHA-256 diff anchor. Never type any of these by hand.
 
-2. **Scope.** Find the previous map for the app (title `<App> Design Map: PR #`). Read its `map.json` (a few KB), never its page. Compare:
+2. **Scope.** Find the previous map for the app (title `<App> Design Map: PR #`). Save its `index.html` to disk with a file-based read (never into the conversation) and run `scripts/extract-map.sh index.html map map.json`; an older multi-file map has `map.json` as its own file. Read that `map.json` (a few KB), never the page. Compare:
    - Same PR, new head: `git diff --name-only <previous head>..<head>`. Empty: update `updated` only. Otherwise rewrite only the sections whose `files` intersect the changed files, and the `notes` of those files.
    - New PR with a previous map: copy `modules`, `layers` and the structural sections (modules, tree, lifecycle, result matrix) whose `files` do not intersect this PR's diff; write new `sequence`, `json` and `notes`; `file-tiles` and the grid rebuild themselves from `files.json`.
    - No previous map: write map.json from scratch, starting from `example/map.json`.
@@ -44,7 +44,7 @@ example/    files.json  map.json                    a complete worked example
 
    `build.sh` fails if the merge lacks app, PR facts, sections or files. Look at the 2000px crops it produced (rebuilt sections only, in an incremental run), fix map.json, rebuild. Never open the full-height raster.
 
-6. **Publish from disk**, titled `<App> Design Map: PR #<n>`: `out/index.html`, `style.css`, `app.js`, `data.js`, `map.json`, `files.json` and `fonts/*.woff2` on the first publish of an app; on a republish `data.js`, `map.json` and `files.json` alone (the template and fonts are already there). Use a file-based publish so no bytes pass through the model. A follow-up refactor PR that only applies the previous map's proposals adds a section to that map, not a new page.
+6. **Publish from disk**, titled `<App> Design Map: PR #<n>`: `out/index.html` only. It carries the CSS, fonts, app.js, map.json and files.json inside it, because claude.ai opens multi-file artifacts only in recent browsers (older Safari shows "This browser isn't supported"). Republishing an older multi-file map: replace mode, so its other files are dropped. Use a file-based publish so no bytes pass through the model. A follow-up refactor PR that only applies the previous map's proposals adds a section to that map, not a new page.
 
 7. Reply with one line and the link.
 
@@ -54,4 +54,4 @@ example/    files.json  map.json                    a complete worked example
 - Nothing bulky goes through the model: no base64, no whole-file pastes, no full-height screenshots, no reading a rendered page. Compute on disk, publish from disk.
 - Never restyle per PR. Styling lives in the template; a style change is a template change with `reference/style-rules.md` as the spec.
 - Proposals (section type `proposal`) are design only. No code changes until the user approves.
-- When the user comments on a page, fix that spot in map.json, rebuild, republish the data files, and answer in the comment thread.
+- When the user comments on a page, fix that spot in map.json, rebuild, republish `index.html`, and answer in the comment thread.

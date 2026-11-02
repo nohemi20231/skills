@@ -1,8 +1,11 @@
-/* PR design map renderer. Reads window.MAP (data.js) and builds the page.
-   The agent writes map.json; scripts/pr-files.sh writes files.json; build.sh merges them into data.js. */
+/* PR design map renderer. The agent writes map.json; scripts/pr-files.sh writes files.json; build.sh embeds
+   both in the page as JSON blocks (#files-json, #map-json), and this merges them, map over files. */
 (function () {
   'use strict';
-  const M = window.MAP || {};
+  const embedded = id => { const el = document.getElementById(id); return el ? JSON.parse(el.textContent) : {}; };
+  const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
+  const merge = (a, b) => { const out = { ...a }; for (const k in b) out[k] = isObj(a[k]) && isObj(b[k]) ? merge(a[k], b[k]) : b[k]; return out; };
+  const M = window.MAP || merge(embedded('files-json'), embedded('map-json'));
   const COLORS = { pink: '#ff4fa3', blue: '#2bb3e8', gold: '#f2b705', green: '#2fbf4a', orange: '#ff8a3d', purple: '#9b6bff', red: '#e0383e', brown: '#a0683a', gray: '#7a7f8c' };
   const CYCLE = ['pink', 'blue', 'gold', 'green', 'orange', 'purple'];
   const color = (c, i) => COLORS[c] || c || COLORS[CYCLE[(i || 0) % CYCLE.length]];
@@ -65,30 +68,37 @@
     }
     return out.join('');
   }
+  /* One line of a code or JSON block. Long lines wrap inside the tile (never a sideways scroll): the leading
+     indent becomes --i (in characters) and a wrapped part hangs two characters further in, so a line's
+     added / changed / unknown color covers all of its text. */
+  const line = (indent, html, cls) => `<span class="ln${cls ? ' ' + cls : ''}" style="--i:${indent}">${html || ' '}</span>`;
+  const indentOf = l => { const m = l.match(/^[ \t]*/)[0]; return { n: m.replace(/\t/g, '    ').length, rest: l.slice(m.length) }; };
   function codeBlock(code, edge) {
     if (!code) return null;
     const lang = code.lang || '';
     const added = new Set(code.added || []), changed = new Set(code.changed || []);
     const lines = String(code.text || '').replace(/\n$/, '').split('\n');
-    const html = lines.map((l, i) => { const k = i + 1; const c = added.has(k) ? ' added' : changed.has(k) ? ' changed' : ''; return `<span class="ln${c}">${tokenizeLine(l, lang) || ' '}</span>`; }).join('');
+    const html = lines.map((l, i) => { const k = i + 1; const { n, rest } = indentOf(l); return line(n, tokenizeLine(rest, lang), added.has(k) ? 'added' : changed.has(k) ? 'changed' : ''); }).join('');
     const pre = h('pre', { class: 'code', html: `<code>${html}</code>` });
     if (edge) pre.style.setProperty('--edge', color(edge));
     return pre;
   }
   function jsonBlock(value, unknown) {
     const unk = new Set(unknown || []);
-    const render = (v, path, ind) => {
-      const pad = '  '.repeat(ind);
-      if (Array.isArray(v)) { if (!v.length) return '[]'; return '[\n' + v.map((x, i) => pad + '  ' + render(x, `${path}[${i}]`, ind + 1)).join(',\n') + '\n' + pad + ']'; }
-      if (v && typeof v === 'object') {
-        const keys = Object.keys(v); if (!keys.length) return '{}';
-        return '{\n' + keys.map(k => { const p = path ? `${path}.${k}` : k; const body = `<span class="ty">"${esc(k)}"</span>: ${render(v[k], p, ind + 1)}`; return pad + '  ' + (unk.has(p) ? `<span class="unknown">${body}</span>` : body); }).join(',\n') + '\n' + pad + '}';
-      }
-      if (typeof v === 'string') return `<span class="st">"${esc(v)}"</span>`;
-      if (typeof v === 'number') return `<span class="nm">${v}</span>`;
-      return `<span class="kw">${String(v)}</span>`;
+    const out = [];
+    const push = (ind, html, bad) => out.push(line(ind * 2, bad ? `<span class="unknown">${html}</span>` : html));
+    const scalar = v => Array.isArray(v) ? '[]' : v && typeof v === 'object' ? '{}' : typeof v === 'string' ? `<span class="st">${esc(JSON.stringify(v))}</span>` : typeof v === 'number' ? `<span class="nm">${v}</span>` : `<span class="kw">${String(v)}</span>`;
+    /* writes v starting on a line that begins with prefix; an unknown key marks every line of its value */
+    const emit = (v, path, ind, prefix, comma, bad) => {
+      const arr = Array.isArray(v) && v.length, obj = !Array.isArray(v) && v && typeof v === 'object' && Object.keys(v).length;
+      if (!arr && !obj) return push(ind, prefix + scalar(v) + comma, bad);
+      push(ind, prefix + (arr ? '[' : '{'), bad);
+      if (arr) v.forEach((x, i) => emit(x, `${path}[${i}]`, ind + 1, '', i < v.length - 1 ? ',' : '', bad));
+      else Object.keys(v).forEach((k, i, keys) => { const p = path ? `${path}.${k}` : k; emit(v[k], p, ind + 1, `<span class="ty">${esc(JSON.stringify(k))}</span>: `, i < keys.length - 1 ? ',' : '', bad || unk.has(p)); });
+      push(ind, (arr ? ']' : '}') + comma, bad);
     };
-    return h('pre', { class: 'json', html: `<code>${render(value, '', 0)}</code>` });
+    emit(value, '', 0, '', '', false);
+    return h('pre', { class: 'json', html: `<code>${out.join('')}</code>` });
   }
 
   /* ---------- prose highlights ---------- */
@@ -106,8 +116,9 @@
 
   /* ---------- SVG helpers ---------- */
   const NS = 'http://www.w3.org/2000/svg';
-  const sv = (tag, attrs, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs || {}) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; };
-  function svgRoot(w, hgt) { const s = sv('svg', { viewBox: `0 0 ${w} ${hgt}`, width: w, height: hgt }); const d = sv('defs'); d.innerHTML = Object.entries(COLORS).map(([k, v]) => `<marker id="arr-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${v}"/></marker>`).join(''); s.append(d); return s; }
+  const sv = (tag, attrs, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs || {}) if (attrs[k] != null) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; };
+  /* aspect-ratio keeps the height in step when max-width shrinks a wide diagram */
+  function svgRoot(w, hgt) { const s = sv('svg', { viewBox: `0 0 ${w} ${hgt}`, width: w, height: hgt, style: `aspect-ratio:${w} / ${hgt}` }); const d = sv('defs'); d.innerHTML = Object.entries(COLORS).map(([k, v]) => `<marker id="arr-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="${v}"/></marker>`).join(''); s.append(d); return s; }
   const markerFor = c => `url(#arr-${Object.keys(COLORS).find(k => COLORS[k] === c) || 'gray'})`;
   function label(svg, x, y, text, cls) { const t = sv('text', { x, y, 'text-anchor': 'middle', class: `halo ${cls || 'arrow'}` }, text); svg.append(t); return t; }
   function box(svg, x, y, w, hgt, title, sub, col) {
@@ -120,7 +131,7 @@
   function boxesDiagram(nodes, edges) {
     const W = 220, H = 84, GAP = 130, perRow = Math.min(nodes.length, 4);
     const rows = Math.ceil(nodes.length / perRow), ROWH = 230;
-    const width = perRow * W + (perRow - 1) * GAP + 40, height = 90 + (rows - 1) * ROWH + H + 50;
+    const width = perRow * W + (perRow - 1) * GAP + 40, height = 90 + (rows - 1) * ROWH + H + 130;
     const svg = svgRoot(width, height);
     const pos = {};
     nodes.forEach((n, i) => { const r = Math.floor(i / perRow), c = i % perRow; const x = 20 + c * (W + GAP), y = 90 + r * ROWH; pos[n.name] = { x, y, i, col: color(n.color, i) }; box(svg, x, y, W, H, n.name, n.sub, pos[n.name].col); });
@@ -131,10 +142,10 @@
       const forward = a.i < b.i, adjacent = Math.abs(a.i - b.i) === 1 && Math.floor(a.i / perRow) === Math.floor(b.i / perRow);
       let d, lx, ly;
       if (adjacent) { const y = a.y + H / 2 + (forward ? -12 : 12); const x1 = forward ? a.x + W : a.x, x2 = forward ? b.x : b.x + W; d = `M${x1},${y} L${x2},${y}`; lx = (x1 + x2) / 2; ly = y + (forward ? -10 : 24); }
-      else if (a === b) { d = `M${a.x + W - 40},${a.y} C${a.x + W - 40},${a.y - 60} ${a.x + W + 30},${a.y - 60} ${a.x + W},${a.y + 20}`; lx = a.x + W; ly = a.y - 48; }
+      else if (a === b) { d = `M${a.x + 20},${a.y} C${a.x + 20},${a.y - 60} ${a.x + 80},${a.y - 60} ${a.x + 80},${a.y}`; lx = a.x; ly = a.y - 66; }
       else { const up = forward; const y0 = up ? a.y : a.y + H; const lift = (up ? -1 : 1) * (40 + 22 * used[key]); const x1 = a.x + W / 2 + (forward ? 30 : -30), x2 = b.x + W / 2 + (forward ? -30 : 30); d = `M${x1},${y0} C${x1},${y0 + lift} ${x2},${y0 + lift} ${x2},${up ? b.y : b.y + H}`; lx = (x1 + x2) / 2; ly = y0 + lift * 0.78 + (up ? 0 : 8); }
       svg.append(sv('path', { d, fill: 'none', stroke: col, 'stroke-width': 3, 'marker-end': markerFor(col) }));
-      if (e.label) label(svg, lx, ly, e.label);
+      if (e.label) { const t = label(svg, lx, ly, e.label); if (a === b) t.setAttribute('text-anchor', 'start'); }
     });
     return svg;
   }
@@ -157,7 +168,8 @@
   }
 
   function treeDiagram(roots) {
-    const W = 230, H = 56, DX = 290, DY = 74; let leaf = 0;
+    let longest = 0; const measure = n => { longest = Math.max(longest, (n.name || '').length); (n.children || []).forEach(measure); }; roots.forEach(measure);
+    const W = Math.max(230, longest * 12.5 + 30), H = 56, DX = W + 60, DY = 74; let leaf = 0;
     const layout = (n, depth) => { n._d = depth; if (n.children && n.children.length) { n.children.forEach(c => layout(c, depth + 1)); n._y = (n.children[0]._y + n.children[n.children.length - 1]._y) / 2; } else n._y = leaf++ * DY; };
     roots.forEach(r => { layout(r, 0); leaf += 0.4; });
     let depth = 0; const walk = (n, f) => { f(n); (n.children || []).forEach(c => walk(c, f)); };
@@ -201,7 +213,7 @@
   }
   function fileTile(f, i) {
     const n = note(f); const mod = (M.modules || []).find(m => m.name === n.module);
-    const el = h('div', { class: 'tile' }); el.style.setProperty('--tile-color', color(mod && mod.color, i));
+    const el = h('div', { class: 'tile' + (n.code ? ' wide' : '') }); el.style.setProperty('--tile-color', color(mod && mod.color, i));
     const head = h('h3', {}, n.class || f.path.split('/').pop());
     if (isNew(f)) head.append(h('span', { class: 'chip new' }, 'NEW')); else if (isMod(f)) head.append(h('span', { class: 'chip mod' }, '✎ modified'));
     if (n.layer) head.append(h('span', { class: 'chip layer' }, n.layer));
@@ -209,7 +221,7 @@
     const right = h('span', { class: 'right' }, countPill(f), pill(fileUrl(f), 'View file'));
     if (isNew(f) || isMod(f)) right.append(changesPill(f));
     head.append(right); el.append(head);
-    el.append(h('p', { class: 'muted', style: 'font:400 15px var(--font-mono);margin:0 0 8px' }, f.path));
+    el.append(h('p', { class: 'muted path' }, f.path));
     if (n.lines) el.append(h('ul', {}, n.lines.map(l => h('li', {}, l))));
     if (n.change && !n.lines) el.append(h('p', {}, n.change));
     if (n.code) el.append(codeBlock(n.code, mod && mod.color));
@@ -217,7 +229,7 @@
   }
   function filesGrid() {
     const mods = M.modules || [], layers = M.layers || [];
-    const g = h('div', { class: 'grid' }); g.style.gridTemplateColumns = `150px repeat(${mods.length}, 1fr)`;
+    const g = h('div', { class: 'grid' }); g.style.gridTemplateColumns = `150px repeat(${mods.length}, minmax(0,1fr))`;
     g.append(h('div'));
     mods.forEach((m, i) => { const d = h('div', { class: 'head' }, m.name); d.style.setProperty('--col', color(m.color, i)); g.append(d); });
     layers.forEach(layer => {

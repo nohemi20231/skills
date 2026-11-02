@@ -3,7 +3,7 @@
 `template/style.css` and `template/app.js` implement everything below. Read this only when changing the template; map.json never carries styling.
 ## Readability (check every time, before publishing)
 
-- Fonts: Lexend for all text and JetBrains Mono for code, letter-spacing 0.02em, no italics. Shipped as four woff2 files under `fonts/` (latin 400 and 700 from the npm @fontsource packages), never base64.
+- Fonts: Lexend for all text and JetBrains Mono for code, letter-spacing 0.02em, no italics. Kept as four woff2 files under `fonts/` (latin 400 and 700 from the npm @fontsource packages); `build.sh` inlines them into the page as data: URIs on disk, so the bytes never pass through the model.
 - JSON tile themes: under the Background row, a "JSON tiles:" row with two buttons, saved in localStorage like the background, Cell type by default:
   - Cell type: the "New and modified in this PR" tile font as a named style, `:root{--cell-font:var(--font-mono);--cell-size:15px;--cell-weight:400;--cell-spacing:.02em}`, used by `.grid .cell`. JSON tiles under `html[data-json="cell"] pre.json` use `--cell-font`, 16px, weight 400 everywhere (no bold), letter-spacing .07em, word-spacing .08em, line-height 1.95.
   - Classic: the original JSON tile look, unchanged.
@@ -21,6 +21,7 @@
   - Bold key words in paragraphs and lists: pastel yellow #fff1a6 (dark: #5a4a00, text #fff1a8).
 - Diagram labels are one or two words; long lists go in a "Who talks to whom" table under the diagram. Labels never overlap lines or each other (halo in the background color, never a colored glow). Route lines around boxes.
 - Code is laid out one statement per line, blank lines between steps, short comment above each part. Variable names say what they hold (current / restored, not before / after).
+- Code and JSON blocks never scroll sideways. A long line wraps inside the tile; the wrapped part hangs two characters further in than its line, and the line's color (added yellow, changed orange, unknown key red) covers every wrapped part. Indentation comes from the leading spaces (tab = 4), rendered as padding.
 - Screenshots: `scripts/shoot.sh` shoots the three backgrounds at a bounded height and crops 2000px slices. Look at crops only, never the full raster.
 
 
@@ -35,3 +36,16 @@
 - Line-count pill: the Numbers peach, #ffdcb8 with #111 text (dark: #6b3d12 with #ffe9d2), same size as the link pills.
 - A legend at the top lists all of these, including a "Links" row: a sample line-count pill ("lines in the file"), "View file ↗", and "View changes +14 −19 ↗" ("added · removed in this PR").
 
+- The "New and modified in this PR" grid: `150px repeat(n, minmax(0,1fr))` and `overflow-wrap:anywhere` on `.grid .cell`, so five modules fit the 1300px page and a long file name wraps instead of widening its column.
+- Tree boxes take their width from the longest name in the tree (12.5px a character plus 30, never under 230), so a long type name never runs past its box.
+- A file tile that carries a code block spans the whole row (`.tile.wide`), so a statement is read, not scrolled. The lifecycle figure keeps 130px under the last row for the return arcs and their labels.
+- Lifecycle self-loops sit on the top-left corner of the box, label above the loop; skip arcs leave from right of center, so the two never cross.
+- The file path under a tile heading wraps anywhere (`.tile .path`); a narrow tile never clips it.
+
+## Safari and older browsers
+
+- One self-contained `index.html`, nothing loaded by relative path: claude.ai shows "This browser isn't supported" for multi-file artifacts in older Safari.
+- Diagram `<svg>` carries `aspect-ratio` from its viewBox, so a diagram shrunk by `max-width` keeps its proportions in every engine.
+- Arrow markers use `orient="auto"` (all arrows are marker-end); `word-break:break-word` sits before `overflow-wrap:anywhere` for Safari before 15.4.
+- Dark sets `color-scheme:dark`, so scrollbars and form controls follow it.
+- Check a template change in WebKit as well as Chromium.

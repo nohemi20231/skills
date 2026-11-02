@@ -1,6 +1,6 @@
 # map.json reference
 
-The agent writes `map.json` only. `files.json` comes from `scripts/pr-files.sh` (git). `scripts/build.sh` merges both into `data.js`, which `template/app.js` renders. `example/map.json` is a complete worked example.
+The agent writes `map.json` only. `files.json` comes from `scripts/pr-files.sh` (git). `scripts/build.sh` embeds both in one self-contained `index.html` (JSON blocks `#files-json` and `#map-json`), which `template/app.js` merges and renders; `scripts/extract-map.sh` pulls `map.json` back out of a published page. `example/map.json` is a complete worked example.
 
 ## Top level
 
