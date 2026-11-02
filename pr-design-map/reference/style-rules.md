@@ -21,6 +21,7 @@
   - Bold key words in paragraphs and lists: pastel yellow #fff1a6 (dark: #5a4a00, text #fff1a8).
 - Diagram labels are one or two words; long lists go in a "Who talks to whom" table under the diagram. Labels never overlap lines or each other (halo in the background color, never a colored glow). Route lines around boxes.
 - Code is laid out one statement per line, blank lines between steps, short comment above each part. Variable names say what they hold (current / restored, not before / after).
+- Code and JSON blocks never scroll sideways. A long line wraps inside the tile; the wrapped part hangs two characters further in than its line, and the line's color (added yellow, changed orange, unknown key red) covers every wrapped part. Indentation comes from the leading spaces (tab = 4), rendered as padding.
 - Screenshots: `scripts/shoot.sh` shoots the three backgrounds at a bounded height and crops 2000px slices. Look at crops only, never the full raster.
 
 

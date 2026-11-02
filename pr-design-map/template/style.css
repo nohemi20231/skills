@@ -91,12 +91,13 @@ a{color:var(--link-ink)}
 pre{background:var(--code-bg);color:var(--code-plain);font:400 16px/1.8 var(--font-mono);letter-spacing:.02em;padding:14px 18px;border-radius:10px;overflow:auto;margin:10px 0;border-left:8px solid var(--edge,transparent)}
 pre code{font:inherit}
 .kw{color:var(--kw);font-weight:700}.ty{color:var(--type)}.fn{color:var(--call)}.st{color:var(--str)}.nm{color:var(--num)}.cm{color:var(--cmt)}
-.ln{display:block}
+/* long lines wrap, never scroll: indent from --i, wrapped part hangs 2ch further in */
+pre .ln{display:block;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;padding-left:calc((var(--i,0) + 2) * 1ch);text-indent:-2ch}
 .ln.added{background:#ffe95c;color:#111}
 .ln.added .kw,.ln.added .ty,.ln.added .fn,.ln.added .st,.ln.added .nm,.ln.added .cm{color:#111}
 .ln.changed{background:#ffb347;color:#111}
 .ln.changed .kw,.ln.changed .ty,.ln.changed .fn,.ln.changed .st,.ln.changed .nm,.ln.changed .cm{color:#111}
-pre.json .unknown{background:#e0383e;color:#fff;border-radius:4px;padding:0 4px}
+pre.json .unknown{background:#e0383e;color:#fff;border-radius:4px;padding:0 4px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
 html[data-json="cell"] pre.json{font:var(--cell-weight) 16px/1.95 var(--cell-font);letter-spacing:.07em;word-spacing:.08em}
 html[data-json="cell"] pre.json .kw{font-weight:400}
 

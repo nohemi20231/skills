@@ -68,30 +68,37 @@
     }
     return out.join('');
   }
+  /* One line of a code or JSON block. Long lines wrap inside the tile (never a sideways scroll): the leading
+     indent becomes --i (in characters) and a wrapped part hangs two characters further in, so a line's
+     added / changed / unknown color covers all of its text. */
+  const line = (indent, html, cls) => `<span class="ln${cls ? ' ' + cls : ''}" style="--i:${indent}">${html || ' '}</span>`;
+  const indentOf = l => { const m = l.match(/^[ \t]*/)[0]; return { n: m.replace(/\t/g, '    ').length, rest: l.slice(m.length) }; };
   function codeBlock(code, edge) {
     if (!code) return null;
     const lang = code.lang || '';
     const added = new Set(code.added || []), changed = new Set(code.changed || []);
     const lines = String(code.text || '').replace(/\n$/, '').split('\n');
-    const html = lines.map((l, i) => { const k = i + 1; const c = added.has(k) ? ' added' : changed.has(k) ? ' changed' : ''; return `<span class="ln${c}">${tokenizeLine(l, lang) || ' '}</span>`; }).join('');
+    const html = lines.map((l, i) => { const k = i + 1; const { n, rest } = indentOf(l); return line(n, tokenizeLine(rest, lang), added.has(k) ? 'added' : changed.has(k) ? 'changed' : ''); }).join('');
     const pre = h('pre', { class: 'code', html: `<code>${html}</code>` });
     if (edge) pre.style.setProperty('--edge', color(edge));
     return pre;
   }
   function jsonBlock(value, unknown) {
     const unk = new Set(unknown || []);
-    const render = (v, path, ind) => {
-      const pad = '  '.repeat(ind);
-      if (Array.isArray(v)) { if (!v.length) return '[]'; return '[\n' + v.map((x, i) => pad + '  ' + render(x, `${path}[${i}]`, ind + 1)).join(',\n') + '\n' + pad + ']'; }
-      if (v && typeof v === 'object') {
-        const keys = Object.keys(v); if (!keys.length) return '{}';
-        return '{\n' + keys.map(k => { const p = path ? `${path}.${k}` : k; const body = `<span class="ty">"${esc(k)}"</span>: ${render(v[k], p, ind + 1)}`; return pad + '  ' + (unk.has(p) ? `<span class="unknown">${body}</span>` : body); }).join(',\n') + '\n' + pad + '}';
-      }
-      if (typeof v === 'string') return `<span class="st">"${esc(v)}"</span>`;
-      if (typeof v === 'number') return `<span class="nm">${v}</span>`;
-      return `<span class="kw">${String(v)}</span>`;
+    const out = [];
+    const push = (ind, html, bad) => out.push(line(ind * 2, bad ? `<span class="unknown">${html}</span>` : html));
+    const scalar = v => Array.isArray(v) ? '[]' : v && typeof v === 'object' ? '{}' : typeof v === 'string' ? `<span class="st">${esc(JSON.stringify(v))}</span>` : typeof v === 'number' ? `<span class="nm">${v}</span>` : `<span class="kw">${String(v)}</span>`;
+    /* writes v starting on a line that begins with prefix; an unknown key marks every line of its value */
+    const emit = (v, path, ind, prefix, comma, bad) => {
+      const arr = Array.isArray(v) && v.length, obj = !Array.isArray(v) && v && typeof v === 'object' && Object.keys(v).length;
+      if (!arr && !obj) return push(ind, prefix + scalar(v) + comma, bad);
+      push(ind, prefix + (arr ? '[' : '{'), bad);
+      if (arr) v.forEach((x, i) => emit(x, `${path}[${i}]`, ind + 1, '', i < v.length - 1 ? ',' : '', bad));
+      else Object.keys(v).forEach((k, i, keys) => { const p = path ? `${path}.${k}` : k; emit(v[k], p, ind + 1, `<span class="ty">${esc(JSON.stringify(k))}</span>: `, i < keys.length - 1 ? ',' : '', bad || unk.has(p)); });
+      push(ind, (arr ? ']' : '}') + comma, bad);
     };
-    return h('pre', { class: 'json', html: `<code>${render(value, '', 0)}</code>` });
+    emit(value, '', 0, '', '', false);
+    return h('pre', { class: 'json', html: `<code>${out.join('')}</code>` });
   }
 
   /* ---------- prose highlights ---------- */
