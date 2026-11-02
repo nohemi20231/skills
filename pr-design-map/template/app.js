@@ -120,7 +120,7 @@
   function boxesDiagram(nodes, edges) {
     const W = 220, H = 84, GAP = 130, perRow = Math.min(nodes.length, 4);
     const rows = Math.ceil(nodes.length / perRow), ROWH = 230;
-    const width = perRow * W + (perRow - 1) * GAP + 40, height = 90 + (rows - 1) * ROWH + H + 50;
+    const width = perRow * W + (perRow - 1) * GAP + 40, height = 90 + (rows - 1) * ROWH + H + 130;
     const svg = svgRoot(width, height);
     const pos = {};
     nodes.forEach((n, i) => { const r = Math.floor(i / perRow), c = i % perRow; const x = 20 + c * (W + GAP), y = 90 + r * ROWH; pos[n.name] = { x, y, i, col: color(n.color, i) }; box(svg, x, y, W, H, n.name, n.sub, pos[n.name].col); });
@@ -131,10 +131,10 @@
       const forward = a.i < b.i, adjacent = Math.abs(a.i - b.i) === 1 && Math.floor(a.i / perRow) === Math.floor(b.i / perRow);
       let d, lx, ly;
       if (adjacent) { const y = a.y + H / 2 + (forward ? -12 : 12); const x1 = forward ? a.x + W : a.x, x2 = forward ? b.x : b.x + W; d = `M${x1},${y} L${x2},${y}`; lx = (x1 + x2) / 2; ly = y + (forward ? -10 : 24); }
-      else if (a === b) { d = `M${a.x + W - 40},${a.y} C${a.x + W - 40},${a.y - 60} ${a.x + W + 30},${a.y - 60} ${a.x + W},${a.y + 20}`; lx = a.x + W; ly = a.y - 48; }
+      else if (a === b) { d = `M${a.x + 20},${a.y} C${a.x + 20},${a.y - 60} ${a.x + 80},${a.y - 60} ${a.x + 80},${a.y}`; lx = a.x; ly = a.y - 66; }
       else { const up = forward; const y0 = up ? a.y : a.y + H; const lift = (up ? -1 : 1) * (40 + 22 * used[key]); const x1 = a.x + W / 2 + (forward ? 30 : -30), x2 = b.x + W / 2 + (forward ? -30 : 30); d = `M${x1},${y0} C${x1},${y0 + lift} ${x2},${y0 + lift} ${x2},${up ? b.y : b.y + H}`; lx = (x1 + x2) / 2; ly = y0 + lift * 0.78 + (up ? 0 : 8); }
       svg.append(sv('path', { d, fill: 'none', stroke: col, 'stroke-width': 3, 'marker-end': markerFor(col) }));
-      if (e.label) label(svg, lx, ly, e.label);
+      if (e.label) { const t = label(svg, lx, ly, e.label); if (a === b) t.setAttribute('text-anchor', 'start'); }
     });
     return svg;
   }
@@ -157,7 +157,8 @@
   }
 
   function treeDiagram(roots) {
-    const W = 230, H = 56, DX = 290, DY = 74; let leaf = 0;
+    let longest = 0; const measure = n => { longest = Math.max(longest, (n.name || '').length); (n.children || []).forEach(measure); }; roots.forEach(measure);
+    const W = Math.max(230, longest * 12.5 + 30), H = 56, DX = W + 60, DY = 74; let leaf = 0;
     const layout = (n, depth) => { n._d = depth; if (n.children && n.children.length) { n.children.forEach(c => layout(c, depth + 1)); n._y = (n.children[0]._y + n.children[n.children.length - 1]._y) / 2; } else n._y = leaf++ * DY; };
     roots.forEach(r => { layout(r, 0); leaf += 0.4; });
     let depth = 0; const walk = (n, f) => { f(n); (n.children || []).forEach(c => walk(c, f)); };
@@ -201,7 +202,7 @@
   }
   function fileTile(f, i) {
     const n = note(f); const mod = (M.modules || []).find(m => m.name === n.module);
-    const el = h('div', { class: 'tile' }); el.style.setProperty('--tile-color', color(mod && mod.color, i));
+    const el = h('div', { class: 'tile' + (n.code ? ' wide' : '') }); el.style.setProperty('--tile-color', color(mod && mod.color, i));
     const head = h('h3', {}, n.class || f.path.split('/').pop());
     if (isNew(f)) head.append(h('span', { class: 'chip new' }, 'NEW')); else if (isMod(f)) head.append(h('span', { class: 'chip mod' }, '✎ modified'));
     if (n.layer) head.append(h('span', { class: 'chip layer' }, n.layer));
@@ -209,7 +210,7 @@
     const right = h('span', { class: 'right' }, countPill(f), pill(fileUrl(f), 'View file'));
     if (isNew(f) || isMod(f)) right.append(changesPill(f));
     head.append(right); el.append(head);
-    el.append(h('p', { class: 'muted', style: 'font:400 15px var(--font-mono);margin:0 0 8px' }, f.path));
+    el.append(h('p', { class: 'muted path' }, f.path));
     if (n.lines) el.append(h('ul', {}, n.lines.map(l => h('li', {}, l))));
     if (n.change && !n.lines) el.append(h('p', {}, n.change));
     if (n.code) el.append(codeBlock(n.code, mod && mod.color));
@@ -217,7 +218,7 @@
   }
   function filesGrid() {
     const mods = M.modules || [], layers = M.layers || [];
-    const g = h('div', { class: 'grid' }); g.style.gridTemplateColumns = `150px repeat(${mods.length}, 1fr)`;
+    const g = h('div', { class: 'grid' }); g.style.gridTemplateColumns = `150px repeat(${mods.length}, minmax(0,1fr))`;
     g.append(h('div'));
     mods.forEach((m, i) => { const d = h('div', { class: 'head' }, m.name); d.style.setProperty('--col', color(m.color, i)); g.append(d); });
     layers.forEach(layer => {

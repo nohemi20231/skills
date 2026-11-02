@@ -35,3 +35,8 @@
 - Line-count pill: the Numbers peach, #ffdcb8 with #111 text (dark: #6b3d12 with #ffe9d2), same size as the link pills.
 - A legend at the top lists all of these, including a "Links" row: a sample line-count pill ("lines in the file"), "View file ↗", and "View changes +14 −19 ↗" ("added · removed in this PR").
 
+- The "New and modified in this PR" grid: `150px repeat(n, minmax(0,1fr))` and `overflow-wrap:anywhere` on `.grid .cell`, so five modules fit the 1300px page and a long file name wraps instead of widening its column.
+- Tree boxes take their width from the longest name in the tree (12.5px a character plus 30, never under 230), so a long type name never runs past its box.
+- A file tile that carries a code block spans the whole row (`.tile.wide`), so a statement is read, not scrolled. The lifecycle figure keeps 130px under the last row for the return arcs and their labels.
+- Lifecycle self-loops sit on the top-left corner of the box, label above the loop; skip arcs leave from right of center, so the two never cross.
+- The file path under a tile heading wraps anywhere (`.tile .path`); a narrow tile never clips it.
