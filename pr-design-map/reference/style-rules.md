@@ -3,7 +3,7 @@
 `template/style.css` and `template/app.js` implement everything below. Read this only when changing the template; map.json never carries styling.
 ## Readability (check every time, before publishing)
 
-- Fonts: Lexend for all text and JetBrains Mono for code, letter-spacing 0.02em, no italics. Shipped as four woff2 files under `fonts/` (latin 400 and 700 from the npm @fontsource packages), never base64.
+- Fonts: Lexend for all text and JetBrains Mono for code, letter-spacing 0.02em, no italics. Kept as four woff2 files under `fonts/` (latin 400 and 700 from the npm @fontsource packages); `build.sh` inlines them into the page as data: URIs on disk, so the bytes never pass through the model.
 - JSON tile themes: under the Background row, a "JSON tiles:" row with two buttons, saved in localStorage like the background, Cell type by default:
   - Cell type: the "New and modified in this PR" tile font as a named style, `:root{--cell-font:var(--font-mono);--cell-size:15px;--cell-weight:400;--cell-spacing:.02em}`, used by `.grid .cell`. JSON tiles under `html[data-json="cell"] pre.json` use `--cell-font`, 16px, weight 400 everywhere (no bold), letter-spacing .07em, word-spacing .08em, line-height 1.95.
   - Classic: the original JSON tile look, unchanged.
@@ -40,3 +40,11 @@
 - A file tile that carries a code block spans the whole row (`.tile.wide`), so a statement is read, not scrolled. The lifecycle figure keeps 130px under the last row for the return arcs and their labels.
 - Lifecycle self-loops sit on the top-left corner of the box, label above the loop; skip arcs leave from right of center, so the two never cross.
 - The file path under a tile heading wraps anywhere (`.tile .path`); a narrow tile never clips it.
+
+## Safari and older browsers
+
+- One self-contained `index.html`, nothing loaded by relative path: claude.ai shows "This browser isn't supported" for multi-file artifacts in older Safari.
+- Diagram `<svg>` carries `aspect-ratio` from its viewBox, so a diagram shrunk by `max-width` keeps its proportions in every engine.
+- Arrow markers use `orient="auto"` (all arrows are marker-end); `word-break:break-word` sits before `overflow-wrap:anywhere` for Safari before 15.4.
+- Dark sets `color-scheme:dark`, so scrollbars and form controls follow it.
+- Check a template change in WebKit as well as Chromium.

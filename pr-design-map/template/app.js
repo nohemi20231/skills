@@ -1,8 +1,11 @@
-/* PR design map renderer. Reads window.MAP (data.js) and builds the page.
-   The agent writes map.json; scripts/pr-files.sh writes files.json; build.sh merges them into data.js. */
+/* PR design map renderer. The agent writes map.json; scripts/pr-files.sh writes files.json; build.sh embeds
+   both in the page as JSON blocks (#files-json, #map-json), and this merges them, map over files. */
 (function () {
   'use strict';
-  const M = window.MAP || {};
+  const embedded = id => { const el = document.getElementById(id); return el ? JSON.parse(el.textContent) : {}; };
+  const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
+  const merge = (a, b) => { const out = { ...a }; for (const k in b) out[k] = isObj(a[k]) && isObj(b[k]) ? merge(a[k], b[k]) : b[k]; return out; };
+  const M = window.MAP || merge(embedded('files-json'), embedded('map-json'));
   const COLORS = { pink: '#ff4fa3', blue: '#2bb3e8', gold: '#f2b705', green: '#2fbf4a', orange: '#ff8a3d', purple: '#9b6bff', red: '#e0383e', brown: '#a0683a', gray: '#7a7f8c' };
   const CYCLE = ['pink', 'blue', 'gold', 'green', 'orange', 'purple'];
   const color = (c, i) => COLORS[c] || c || COLORS[CYCLE[(i || 0) % CYCLE.length]];
@@ -106,8 +109,9 @@
 
   /* ---------- SVG helpers ---------- */
   const NS = 'http://www.w3.org/2000/svg';
-  const sv = (tag, attrs, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs || {}) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; };
-  function svgRoot(w, hgt) { const s = sv('svg', { viewBox: `0 0 ${w} ${hgt}`, width: w, height: hgt }); const d = sv('defs'); d.innerHTML = Object.entries(COLORS).map(([k, v]) => `<marker id="arr-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${v}"/></marker>`).join(''); s.append(d); return s; }
+  const sv = (tag, attrs, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs || {}) if (attrs[k] != null) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; };
+  /* aspect-ratio keeps the height in step when max-width shrinks a wide diagram */
+  function svgRoot(w, hgt) { const s = sv('svg', { viewBox: `0 0 ${w} ${hgt}`, width: w, height: hgt, style: `aspect-ratio:${w} / ${hgt}` }); const d = sv('defs'); d.innerHTML = Object.entries(COLORS).map(([k, v]) => `<marker id="arr-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="${v}"/></marker>`).join(''); s.append(d); return s; }
   const markerFor = c => `url(#arr-${Object.keys(COLORS).find(k => COLORS[k] === c) || 'gray'})`;
   function label(svg, x, y, text, cls) { const t = sv('text', { x, y, 'text-anchor': 'middle', class: `halo ${cls || 'arrow'}` }, text); svg.append(t); return t; }
   function box(svg, x, y, w, hgt, title, sub, col) {
