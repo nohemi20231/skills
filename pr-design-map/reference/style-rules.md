@@ -1,6 +1,6 @@
-# Style rules the template implements
+# Style rules the templates implement
 
-`template/style.css` and `template/app.js` implement everything below. Read this only when changing the template; map.json never carries styling.
+`template/style.css` and `template/app.js` implement everything below the first heading; the Classic section at the end describes `template-classic/`. Read this only when changing a template; map.json never carries styling.
 ## Readability (check every time, before publishing)
 
 - Fonts: Lexend for all text and JetBrains Mono for code, letter-spacing 0.02em, no italics. Kept as four woff2 files under `fonts/` (latin 400 and 700 from the npm @fontsource packages); `build.sh` inlines them into the page as data: URIs on disk, so the bytes never pass through the model.
@@ -52,3 +52,22 @@
 - Arrow markers use `orient="auto"` (all arrows are marker-end); `word-break:break-word` sits before `overflow-wrap:anywhere` for Safari before 15.4.
 - Dark sets `color-scheme:dark`, so scrollbars and form controls follow it.
 - Check a template change in WebKit as well as Chromium.
+
+## Classic template (`template-classic/`)
+
+The first design-map look, kept as a second template that renders the same map.json. Where it differs from the rules above:
+
+- Fonts: IBM Plex Sans for text (latin 400, 600, 700) and IBM Plex Mono for code (latin 400, 500), inlined by `build.sh` from `template-classic/fonts/` the same way. Body 16px / 1.6, code 13px / 1.55, tables 14px, legend 13.5px, SVG labels 11.5-13.5px and state names 17px: the original sizes, smaller than the default template's.
+- Two themes, not three: light (page #f6f7f9, surfaces #ffffff, ink #111418) and dark (page #12161d, surfaces #1a2029, ink #eef1f5), a "Dark mode" / "Light mode" button under the title, the system preference by default, saved in localStorage (`dm-classic-theme`); `?theme=dark` forces dark, any other value light. White surfaces are allowed here; this is the look.
+- Named colors are CSS variables (`--c-pink` … `--c-gray`, plus `--c-teal`) with a light and a dark value each, so every diagram, edge and chip re-colors with the theme. SVG draws with `currentColor` on elements carrying `style="color:…"`; arrow heads use `fill="context-stroke"` with a per-color marker fallback.
+- Layout: one 1100px reading column, sections numbered in the heading and in a numbered nav row, 56px between sections.
+- Legend rows: Modules (swatches), Card kinds (record teal, interface pink, enum gold, helper / class gray, DB table brown), Files (NEW, ✎ modified, the added and changed line marks), JSON (key, text, number, null, unknown key, TypeName), Links, then any `legend` rows from map.json.
+- Sequence: 140px actor boxes over dashed lanes in the actor's color, arrows numbered in the caller's color with the label beside the number and the value in muted text under the arrow, replies dashed.
+- Modules: one column per module with a row per layer, the PR's files (by `class`) listed in their cells with + or ✎, "no change" otherwise; cross-module edges as arcs above the columns in the caller's color; the "Who talks to whom" table under the figure. There is no "New and modified" grid; the columns are that grid.
+- Trees: text trees in a code block (`sealed Root`, `├──`, `└──`), one per root in the three-column grid, the root's color as the block's left edge.
+- Tables: `✓` renders as a `●` and `✗` as a `·`; with `colors`, each column's header gets a 3px underline and its `●` marks that color.
+- Cards (tiles, file tiles, proposals): white surface, 1px border, a 5px left edge and a mono heading in the card's color; kind chips and the RECOMMENDED tag are tinted pills in their color. A card with code spans the row. Links are plain accent-colored text with ↗, not pills; the line count is small mono text.
+- Code: the same tokenizer; keywords pink bold, types teal bold, calls accent, strings green, numbers orange, comments muted, on the light code background. Added and changed lines keep the 4px bar and faint tint (teal and orange here). JSON keys blue, strings green, numbers orange, `null` muted italic, unknown keys red.
+- Prose highlights are quieter: `**key words**` bold, CamelCase and CONSTANT names in the mono face, no pastel blocks.
+- Phones: the three-column grid and the cards stack under 800px; figures and tables scroll inside their box.
+

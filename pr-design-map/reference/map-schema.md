@@ -17,9 +17,10 @@ The agent writes `map.json` only. `files.json` comes from `scripts/pr-files.sh` 
 }
 ```
 
-- `modules`: one color each from pink, blue, gold, green, orange, purple, red, brown, gray (or any CSS color). Columns of the "New and modified" grid and the module diagram boxes.
+- `template` (optional): `"classic"` renders the page with `template-classic/` (the first look: IBM Plex, light and dark, numbered sections, layered module columns, text trees, cards); omitted or `"default"` uses `template/`. `build.sh -t` overrides it.
+- `modules`: one color each from pink, blue, gold, green, orange, purple, red, brown, gray (or any CSS color; classic also knows teal). Columns of the "New and modified" grid and the module diagram boxes.
 - `layers`: rows of the grid and the grouping of file tiles.
-- `notes[path]`: what the agent knows about a file in the PR. Keys: `module`, `layer`, `class` (tile heading), `change` (two to five words), `lines` (bullets), `code` (see Code), `kind: "table"` for DB tables and migrations.
+- `notes[path]`: what the agent knows about a file in the PR. Keys: `module`, `layer`, `class` (tile heading), `change` (two to five words), `lines` (bullets), `code` (see Code), `kind`: `"table"` for DB tables and migrations (both templates group them apart); classic also shows `record`, `interface`, `enum` or `helper` as a colored kind chip.
 - `sections[].files`: the repo paths a section was drawn from. Written to `data-files` on the section so the next run can tell which sections a later diff touches.
 
 ## Code
@@ -35,11 +36,11 @@ Line numbers are 1-based. Added lines get a `+` gutter mark, a yellow left bar a
 | type | fields | renders |
 |---|---|---|
 | `sequence` | `actors: [{name, sub, color}]`, `steps: [{from, to, label, value, reply}]`, optional `table` | SVG sequence diagram, value under each arrow, dashed arrows for replies |
-| `json` | `items: [{title, value, unknown: ["a.b"], color}]`, `stack` | one tile per JSON shape, unknown keys in red |
+| `json` | `items: [{title, value, unknown: ["a.b"], color, tag}]`, `stack` | one tile per JSON shape, unknown keys in red; classic shows `tag` (a package or source, e.g. `parser.api · ReplyDecoder`) in small mono above the tile |
 | `modules` | `edges: [{from, to, label}]`, optional `table: {columns, rows}` | module boxes with labelled arrows, the "Who talks to whom" table, then the "New and modified in this PR" grid from `files` and `notes` |
-| `tree` | `roots: [{name, sub, color, children: [...]}]` | SVG type hierarchy |
-| `table` | `columns`, `rows` | table; `✓` and `✗` cells are colored |
-| `tiles` | `items: [{title, chip, lines, code, json, color, recommended}]`, `stack` | bordered tiles |
+| `tree` | `roots: [{name, sub, color, tag, children: [...]}]` | SVG type hierarchy (classic: a text tree per root, `sealed` before a root with children, `sub` as a comment, `tag` above) |
+| `table` | `columns`, `rows`, optional `colors` | table; `✓` and `✗` cells are colored. `colors` gives one color per column (a command's color, say); classic colors that column's header and its `●` marks with it |
+| `tiles` | `items: [{title, chip, lines, code, json, color, recommended}]`, `stack` | bordered tiles. A `chip` naming a kind (record, interface, enum, helper / class, table) colors the tile by kind in classic |
 | `code` | `code`, `edge` (color) | one code block |
 | `file-tiles` | none | one tile per file in `files`, grouped by module and layer, with line-count and link pills from `files.json`; `kind: "table"` notes go under "Tables and migrations" |
 | `lifecycle` | `states: ["OPEN", ...]` or `[{name, color}]`, `transitions: [{from, to, label}]` | SVG state diagram |
