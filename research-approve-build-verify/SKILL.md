@@ -13,21 +13,21 @@ Prefer small slices. When a proposal touches several modules or would add thousa
 
 ## Phase 0: Sync (two minutes, every session)
 
-Before any research: `git fetch`, `gh pr list`, `git log --oneline main..HEAD`, and read the resume line in `docs/architecture/STATE.md`. When another Claude session may be working on the same repo, check which branches it owns and agree that only one session merges to main. A slice, a refactor PR and a design map all start from this known state; skipping it cost the 2026-10-30 session several rounds of "was it pushed, was it approved".
+Before any research: `git fetch`, list open PRs (`gh pr list`, or the GitHub tool when the `gh` CLI is not installed), `git log --oneline main..HEAD`, and read the resume line in `docs/architecture/STATE.md`. If that file does not exist, say so in the first message and treat the branch and PR list as the whole state; do not create the file unless the user asks. When another Claude session may be working on the same repo, check which branches it owns and agree that only one session merges to main. A slice, a refactor PR and a design map all start from this known state; skipping it cost the 2026-10-30 session several rounds of "was it pushed, was it approved".
 
 ## Approval mode
 
-Each checkpoint shows the recommended option first. When the user has said "auto-approve" (or "continue with my recommended options") for the session, the recommended option counts as approved: record the decision in `docs/architecture/STATE.md` with the date and move on. Contract changes and anything hard to reverse still wait for the user.
+Each checkpoint shows the recommended option first. When the user has said "auto-approve" (or "continue with my recommended options") for the session, the recommended option counts as approved: record the decision with the date in `docs/architecture/STATE.md` (or in the PR description when the repo has no such file) and move on. Contract changes and anything hard to reverse still wait for the user.
 
 ## Phase 1: Parallel read-only research
 
-First recall lessons: if the project keeps a file of lessons from earlier PRs (for example the kept lessons of an `agent-grade-and-learn` store), search it for the feature's domain words and the modules it touches, and give the matching lessons to every subagent below.
+First recall lessons: if the project keeps a file of lessons from earlier PRs (for example the kept lessons of an `agent-grade-and-learn` store, when that skill is installed), search it for the feature's domain words and the modules it touches, and give the matching lessons to every subagent below. If there is no lessons file, write "Lessons used: none kept for this project" in the proposal and continue.
 
 Before editing anything, launch three subagents in parallel. They are read-only: they must not create, edit or delete files. Give each the feature request and ask for a concise written report with file paths and line references.
 
 1. **Integration mapper**: Where does this feature plug in?
-   - Affected services, modules, controllers, beans and packages
-   - Configuration (properties/YAML, profiles, feature flags) and how it is loaded
+   - Affected services, modules, packages and entry points (controllers, handlers, commands, jobs)
+   - Configuration (config files, environment variables, profiles, feature flags) and how it is loaded
    - Authentication and authorization paths the feature passes through
    - Data model and persistence touched, including migrations
    - Existing conventions the change must follow: naming, layering, error handling, logging, DTO/mapping patterns
@@ -58,6 +58,36 @@ Merge the three reports into a design proposal. Present it in this order:
 
 Check every claim the proposal makes about existing code against the code itself (file and line) before writing it down. Write user-facing text (replies, error messages) word for word in the proposal.
 
+A proposal for a small slice looks like this (headings and order fixed, content illustrative):
+
+```
+## Design: order cancellation by customer
+
+### Architecture
+[diagram: OrderController -> OrderService.cancel -> OrderRepository; emits OrderCancelled event]
+
+### Change, file by file
+- src/orders/OrderController.java:88  add POST /orders/{id}/cancel, delegates to service
+- src/orders/OrderService.java:140    add cancel(id): rejects unless status is NEW or CONFIRMED
+- src/orders/OrderStatus.java:12      add CANCELLED
+- V12__order_cancelled.sql            new status value, no column change
+
+User-facing text: "Order {id} can no longer be cancelled because it has shipped."
+
+### Risks
+- BillingService reads OrderStatus (BillingService.java:57): CANCELLED is ignored there today -> add an explicit branch and a test.
+
+### Test plan
+New: cancel NEW order succeeds; cancel SHIPPED order returns 409 with the text above; event emitted once.
+Regression: existing OrderServiceTest and BillingServiceTest suites.
+
+### Lessons used
+- L-014 (idempotent state changes): cancel on an already CANCELLED order returns 200, no second event.
+
+### Open questions
+- Should cancellation refund automatically, or is that the next slice?
+```
+
 Then stop and wait for the user's explicit approval. Do not write or modify any code before approval. If the user requests changes, revise the proposal and wait again.
 
 ## Phase 3: Implement with TDD
@@ -67,10 +97,8 @@ After approval:
 1. Write the new tests from the approved test plan first. Run them and confirm they fail for the expected reason. Tests never depend on real time: inject the clock, await instead of sleeping, and add no test-only overloads to production code.
 2. Implement the smallest change that makes them pass, following the conventions the mapper found.
 3. Run the full relevant test suite, not just the new tests.
-4. Refactor for clarity while keeping tests green. Before the PR, hunt duplicates in the touched code: extract a shared step before making its third copy, write a repeated value or constructor call once (constant or factory), give a group of parameters that always travel together its own small type, and split a class whose imports show it knows too much. Run the `clean-code` checklist over every file the slice touched here, inside the slice, so the PR carries its own clean-up; a separate clean-code audit after the PR means a second PR and a second design map for the same change.
+4. Refactor for clarity while keeping tests green. Before the PR, hunt duplicates in the touched code: extract a shared step before making its third copy, write a repeated value or constructor call once (constant or factory), give a group of parameters that always travel together its own small type, and split a class whose imports show it knows too much. Run that checklist (or the project's clean-code skill, when one is installed) over every file the slice touched here, inside the slice, so the PR carries its own clean-up; a separate clean-code audit after the PR means a second PR and a second design map for the same change.
 5. Update docs, API specs (e.g. OpenAPI) and the manual test matrix.
-
-Commit one fix per commit, named after the finding it fixes.
 
 Stay within the approved design. If implementation reveals the design will not work as approved, stop and report the problem with a proposed adjustment. Do not improvise a different design.
 
@@ -90,7 +118,7 @@ The QA agent reports findings only; it does not fix them.
 
 ## Phase 5: Fix confirmed failures
 
-Fix only failures the QA agent confirmed with evidence. Do not chase speculative issues. Re-run the relevant tests after each fix. If a fix would require changing the approved design, stop and ask the user.
+Fix only failures the QA agent confirmed with evidence. Do not chase speculative issues. Re-run the relevant tests after each fix. Commit one fix per commit, named after the finding it fixes. If a fix would require changing the approved design, stop and ask the user.
 
 ## Phase 6: Report
 
@@ -103,7 +131,7 @@ End with a short report:
 
 The PR description carries a **Verified** section with this evidence: test commands and counts, plus any diff, sync or manual check run. A claim with no recorded check counts as unverified.
 
-Then one PR and one design map (`pr-design-map`) per slice. Small behavior-preserving refactors that fall out of the review go in the same PR when the same suite guards them; a separate PR only when a contract changes.
+Then one PR and one design map (`pr-design-map`, when that skill is installed; otherwise the architecture diagram from the approved proposal goes in the PR description) per slice. Small behavior-preserving refactors that fall out of the review go in the same PR when the same suite guards them; a separate PR only when a contract changes.
 
 ## Rules throughout
 
