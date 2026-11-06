@@ -17,7 +17,7 @@ Before any research: `git fetch`, list open PRs (`gh pr list`, or the GitHub too
 
 ## Approval mode
 
-Each checkpoint shows the recommended option first. When the user has said "auto-approve" (or "continue with my recommended options") for the session, the recommended option counts as approved: record the decision with the date in `docs/architecture/STATE.md` (or in the PR description when the repo has no such file) and move on. Contract changes and anything hard to reverse still wait for the user.
+Each checkpoint shows the recommended option first. The user approves the list of slices once per increment (one line per slice). After that, a slice proposal waits for the user only when it carries an ask-list item (`design-rulebook` SC-7), a contract change, or anything hard to reverse; otherwise show it (one screen) and continue to Phase 3. Without an approved slice list, every proposal waits as before. When the user has said "auto-approve" (or "continue with my recommended options") for the session, the recommended option counts as approved: record the decision with the date in `docs/architecture/STATE.md` (or in the PR description when the repo has no such file) and move on. Contract changes and anything hard to reverse still wait for the user.
 
 ## Phase 1: Parallel read-only research
 
@@ -45,7 +45,7 @@ Before editing anything, launch three subagents in parallel. They are read-only:
    - A validation matrix: existing behaviors to regression-check × new behaviors to verify
    - Manual test steps where automation is not practical
 
-## Phase 2: Synthesize and propose. STOP for approval.
+## Phase 2: Synthesize, scope-check, propose
 
 Merge the three reports into a design proposal. Present it in this order:
 
@@ -54,14 +54,17 @@ Merge the three reports into a design proposal. Present it in this order:
 3. Risks from the impact analyst and how the design handles each.
 4. The test plan and validation matrix.
 5. **Lessons used**: each matching lesson id and how the design follows it, or "not relevant" with a reason.
-6. Open questions.
+6. **Scope table**: every scope item with its source (`design-rulebook` SC-1: the user's words, a cited failure that would hit this deployment, or a cited rule that applies to it), the estimated production lines against the slice cap (SC-4), and the parked items, one line each, added to `docs/parked.md`.
+7. Questions for the user: only ask-list items (SC-7). Decide everything else and list it as technical defaults (at most 5).
 
-Check every claim the proposal makes about existing code against the code itself (file and line) before writing it down. Write user-facing text (replies, error messages) word for word in the proposal.
+The proposal opens with the lines `- **Branch:** <branch>` and `- **Status:** ...`; before any code, the status reads `APPROVED` with its source (the user's words, or the approved slice list). A PR check or hook may match these lines. Check every claim the proposal makes about existing code against the code itself (file and line) before writing it down. Write user-facing text (replies, error messages) word for word in the proposal.
 
 A proposal for a small slice looks like this (headings and order fixed, content illustrative):
 
 ```
 ## Design: order cancellation by customer
+- **Branch:** feature/order-cancel
+- **Status:** PROPOSED
 
 ### Architecture
 [diagram: OrderController -> OrderService.cancel -> OrderRepository; emits OrderCancelled event]
@@ -84,21 +87,31 @@ Regression: existing OrderServiceTest and BillingServiceTest suites.
 ### Lessons used
 - L-014 (idempotent state changes): cancel on an already CANCELLED order returns 200, no second event.
 
-### Open questions
-- Should cancellation refund automatically, or is that the next slice?
+### Scope
+| Item | Source | Est. lines |
+| cancel endpoint + status | user's words | ~60 / cap |
+Parked: automatic refund (docs/parked.md)
+
+### Questions for the user
+- none (technical default: no automatic refund in this slice)
 ```
 
-Then stop and wait for the user's explicit approval. Do not write or modify any code before approval. If the user requests changes, revise the proposal and wait again.
+Before showing it, run the `gatekeeper` (Job 4, scope check) on the proposal file and apply its cuts. Then stop for approval as the Approval mode says. Do not write or modify any code before the proposal is approved, by the user or by the approved slice list when it carries no ask-list item. If the user requests changes, revise the proposal and wait again.
 
 ## Phase 3: Implement with TDD
 
-After approval:
+After approval, build in red-green-refactor cycles, one row of the approved test plan per cycle (the `test-driven-development` skill). Never write several tests ahead of the code, and never write code for a row before its test has failed.
 
-1. Write the new tests from the approved test plan first. Run them and confirm they fail for the expected reason. Tests never depend on real time: inject the clock, await instead of sleeping, and add no test-only overloads to production code.
-2. Implement the smallest change that makes them pass, following the conventions the mapper found.
-3. Run the full relevant test suite, not just the new tests.
-4. Refactor for clarity while keeping tests green. Before the PR, hunt duplicates in the touched code: extract a shared step before making its third copy, write a repeated value or constructor call once (constant or factory), give a group of parameters that always travel together its own small type, and split a class whose imports show it knows too much. Run that checklist (or the project's clean-code skill, when one is installed) over every file the slice touched here, inside the slice, so the PR carries its own clean-up; a separate clean-code audit after the PR means a second PR and a second design map for the same change.
-5. Update docs, API specs (e.g. OpenAPI) and the manual test matrix.
+1. **Red.** Write one test for the next row. Run it and confirm it fails for the expected reason (for a new class: compile error, then an empty stub, then the assertion failure). Commit it alone as `test(<module>): ...`, so the red step is on record.
+2. **Green.** Write the least production code that makes that test pass, following the conventions the mapper found. Run the test, then the module's suite. Commit as `feat(<module>): ...` or `fix(<module>): ...`.
+3. **Refactor.** With the suite green, clean what the cycle touched: names; extract a shared step before making its third copy; write a repeated value or constructor call once (constant or factory); give a group of parameters that always travel together its own small type; split a class whose imports show it knows too much. Re-run the suite; commit as `refactor(<module>): ...` when anything changed.
+4. **Next row**, back to Red.
+
+Tests never depend on real time: inject the clock, await instead of sleeping, and add no test-only overloads to production code.
+
+When every row is green: run the full test suite, run the step 3 checklist (or the project's clean-code skill, when one is installed) over every file the slice touched (inside the slice, so the PR carries its own clean-up; a separate clean-code audit after the PR means a second PR and a second design map for the same change), and update docs, API specs (e.g. OpenAPI) and the manual test matrix.
+
+A QA fix follows the same cycle: a failing test that reproduces the finding, then the fix, one finding per commit, named after it.
 
 Stay within the approved design. If implementation reveals the design will not work as approved, stop and report the problem with a proposed adjustment. Do not improvise a different design.
 
@@ -113,6 +126,7 @@ Launch a QA subagent that has not seen the implementation reasoning. Give it onl
 5. The implementation matches the approved architecture diagram.
 6. The proposal's "Lessons used" list was followed.
 7. Tests use an injected clock, no sleeps and no test-only overloads; no value, call or step is copied three times.
+8. Red came first: every `feat`/`fix` commit is preceded by a `test` commit, and the new test fails when run at that `test` commit. Check at least three cycles by checking them out.
 
 The QA agent reports findings only; it does not fix them.
 
@@ -128,10 +142,11 @@ End with a short report:
 - Validation evidence: commands run, test counts, pass/fail results
 - QA findings and how each was resolved
 - Anything deferred or still open
+- Size (SC-9): production, test and doc lines changed, and open items before and after
 
 The PR description carries a **Verified** section with this evidence: test commands and counts, plus any diff, sync or manual check run. A claim with no recorded check counts as unverified.
 
-Then one PR and one design map (`pr-design-map`, when that skill is installed; otherwise the architecture diagram from the approved proposal goes in the PR description) per slice. Small behavior-preserving refactors that fall out of the review go in the same PR when the same suite guards them; a separate PR only when a contract changes.
+Then one PR per slice, with one line in the change log. A design map (`pr-design-map`, when that skill is installed; otherwise the architecture diagram from the approved proposal goes in the PR description) only when the slice uses the full process (`design-rulebook` SC-6: a new module or service, a contract between modules, a new outside service). Small behavior-preserving refactors that fall out of the review go in the same PR when the same suite guards them; a separate PR only when a contract changes.
 
 ## Rules throughout
 
