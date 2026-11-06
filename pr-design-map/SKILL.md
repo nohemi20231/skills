@@ -10,7 +10,7 @@ For every PR, one page that shows the design as the code stands on the PR's bran
 The page is a fixed template plus data. You write **map.json** only. Git writes **files.json**. The template renders both.
 
 ```
-template/          index.html, style.css, app.js, fonts/   the default look (Lexend, three backgrounds, tiles and grid); never edited per PR
+template/          index.html, style.css, app.js, fonts/   the default look (Lexend, Slate and three more backgrounds, sticky sidebar or top bar, diagrams that fold behind Hide / Show); never edited per PR
 template-classic/  index.html, style.css, app.js, fonts/   the first look (IBM Plex, light and dark, numbered sections, layered columns, cards)
 scripts/           pr-files.sh  build.sh  shoot.sh  extract-map.sh   git facts, assembly, screenshots, map.json back out of a page
 reference/         map-schema.md  style-rules.md           what map.json may contain; what the templates enforce
@@ -45,7 +45,7 @@ Both templates render the same map.json. The default is `template/`; `"template"
    scripts/shoot.sh out/
    ```
 
-   `build.sh` fails if the merge lacks app, PR facts, sections or files. `shoot.sh` shoots each background the page has (three for the default template, light and dark for classic). Look at the 2000px crops it produced (rebuilt sections only, in an incremental run), fix map.json, rebuild. Never open the full-height raster.
+   `build.sh` fails if the merge lacks app, PR facts, sections or files. `shoot.sh` shoots each background the page has (four for the default template plus a phone view, light and dark for classic). Look at the 2000px crops and `top-phone.png` it produced (rebuilt sections only, in an incremental run), fix map.json, rebuild. Never open the full-height raster.
 
 6. **Publish from disk**, titled `<App> Design Map: PR #<n>`: `out/index.html` only. It carries the CSS, fonts, app.js, map.json and files.json inside it, because claude.ai opens multi-file artifacts only in recent browsers (older Safari shows "This browser isn't supported"). Republishing an older multi-file map: replace mode, so its other files are dropped. Use a file-based publish so no bytes pass through the model. A follow-up refactor PR that only applies the previous map's proposals adds a section to that map, not a new page.
 

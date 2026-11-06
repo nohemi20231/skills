@@ -46,7 +46,7 @@ Line numbers are 1-based. Added lines get a `+` gutter mark, a yellow left bar a
 | `lifecycle` | `states: ["OPEN", ...]` or `[{name, color}]`, `transitions: [{from, to, label}]` | SVG state diagram |
 | `proposal` | `current: tile`, `options: [tile]`, `comparison: table`, `decisions: [tile]` | CURRENT first, each MODIFIED option stacked below, comparison table, decision tiles with the recommended one marked |
 
-Section `id` defaults to a slug of the title. Links, pills, highlights, legend, nav, background and JSON-tile buttons are generated; the map never carries HTML or styling.
+Section `id` defaults to a slug of the title. Links, pills, highlights, the Key panel, the section picker and sidebar, the Settings panel and the Hide / Show diagram folds are generated; the map never carries HTML or styling.
 
 ## Prose highlights
 

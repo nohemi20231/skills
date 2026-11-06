@@ -17,13 +17,15 @@
     return e;
   };
   const slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const secId = (s, i) => s.id || slug(s.title || `section-${i}`);
+  const PHONE = window.matchMedia ? window.matchMedia('(max-width:800px)') : { matches: false };
 
   /* ---------- theme ---------- */
   function initTheme() {
     const q = new URLSearchParams(location.search);
-    let t = q.get('theme'); if (t === 'light') t = 'lavender';
+    let t = q.get('theme'); if (t === 'light') t = 'slate';
     let j = q.get('json');
-    try { t = t || localStorage.getItem('dm-theme') || 'lavender'; j = j || localStorage.getItem('dm-json') || 'cell'; } catch (e) { t = t || 'lavender'; j = j || 'cell'; }
+    try { t = t || localStorage.getItem('dm-theme') || 'slate'; j = j || localStorage.getItem('dm-json') || 'cell'; } catch (e) { t = t || 'slate'; j = j || 'cell'; }
     setTheme(t); setJson(j);
   }
   function setTheme(t) { document.documentElement.setAttribute('data-theme', t); try { localStorage.setItem('dm-theme', t); } catch (e) {} document.querySelectorAll('[data-set-theme]').forEach(b => b.setAttribute('aria-pressed', b.dataset.setTheme === t)); }
@@ -103,7 +105,7 @@
 
   /* ---------- prose highlights ---------- */
   const HL = /\*\*(.+?)\*\*|\b([A-Z][a-z0-9]+(?:[A-Z][a-z0-9]*)+)\b|\b([A-Z][A-Z0-9_]{2,})\b|\b([A-Z]{1,3}-[A-Z]?\d{1,4}[a-z]?|[VDOR]\d{1,4})\b|\b(\d+(?:\.\d+)?)\b/g;
-  const SKIP = 'pre,code,a,h1,h2,h3,.pill,.chip,.count,.btn,.legend,.tag,.nav,.meta,.row,svg,.tile>h3,.path,.grid';
+  const SKIP = 'pre,code,a,h1,h2,h3,.pill,.chip,.count,.btn,.legend,.tag,svg,.tile>h3,.path,.grid,.topbar,.sidebar,.sheet,.summary,button,select';
   function highlightProse(root) {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => n.parentElement.closest(SKIP) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
     const nodes = []; while (walker.nextNode()) nodes.push(walker.currentNode);
@@ -122,7 +124,12 @@
      The figure may shrink a wide diagram to 87.5% at most (16px text stays at 14px); past that it scrolls. */
   function fit(svg, w, y0, y1) { const hgt = Math.round(y1 - y0); svg.setAttribute('viewBox', `0 ${Math.round(y0)} ${w} ${hgt}`); svg.setAttribute('width', w); svg.setAttribute('height', hgt); svg.style.aspectRatio = `${w} / ${hgt}`; svg.style.minWidth = `${Math.round(w * 0.875)}px`; }
   const markerFor = c => `url(#arr-${Object.keys(COLORS).find(k => COLORS[k] === c) || 'gray'})`;
-  function label(svg, x, y, text, cls) { const t = sv('text', { x, y, 'text-anchor': 'middle', class: `halo ${cls || 'arrow'}` }, text); svg.append(t); return t; }
+  /* an arrow label over a halo: a copy stroked in the tile colour drawn first, the text on top. (One stroked text with paint-order lets
+     each glyph's stroke cover its neighbour's fill in some renderers, which breaks the letters.) */
+  function label(svg, x, y, text, cls, anchor) {
+    const a = { x, y, 'text-anchor': anchor || 'middle' };
+    svg.append(sv('text', { ...a, class: `halo ${cls || 'arrow'}`, 'aria-hidden': 'true' }, text), sv('text', { ...a, class: cls || 'arrow' }, text));
+  }
   function box(svg, x, y, w, hgt, title, sub, col) {
     svg.append(sv('rect', { x, y, width: w, height: hgt, rx: 12, class: 'box', stroke: col }));
     svg.append(sv('text', { x: x + w / 2, y: y + (sub ? hgt / 2 - 6 : hgt / 2 + 8), 'text-anchor': 'middle', class: 'title' }, title));
@@ -165,7 +172,7 @@
         if (up) { ly = apex - 10; top = Math.min(top, ly - 20); } else { ly = apex + 24; bottom = Math.max(bottom, ly + 8); }
       }
       svg.append(sv('path', { d, fill: 'none', stroke: col, 'stroke-width': 3, 'marker-end': markerFor(col) }));
-      if (e.label) { const t = label(svg, lx, ly, e.label); if (anchor) t.setAttribute('text-anchor', anchor); }
+      if (e.label) label(svg, lx, ly, e.label, null, anchor);
     });
     fit(svg, width, top - 24, bottom + 24);
     return svg;
@@ -208,18 +215,30 @@
 
   /* ---------- components ---------- */
   function section(s, i) {
-    const id = s.id || slug(s.title || `section-${i}`);
-    const wrap = h('section', { id, 'data-files': (s.files || []).join(',') });
+    const wrap = h('section', { id: secId(s, i), 'data-files': (s.files || []).join(',') });
     wrap.append(h('h2', {}, s.title || ''));
-    const R = RENDER[s.type]; if (R) wrap.append(...[R(s)].flat().filter(Boolean)); else wrap.append(h('p', { class: 'muted' }, `unknown section type ${s.type}`));
+    const R = RENDER[s.type]; if (R) wrap.append(...[R(s)].flat(3).filter(Boolean)); else wrap.append(h('p', { class: 'muted' }, `unknown section type ${s.type}`));
     return wrap;
   }
-  const fig = svg => h('figure', {}, svg);
+  /* a diagram sits in a tile whose header bar ("Diagram … Hide ▴ / Show ▾") folds it, open at first; folded, the bar stays.
+     The figure scrolls sideways at a readable size; a "Swipe sideways" line shows while it overflows */
+  const fig = svg => {
+    const f = h('figure', {}, svg), hint = h('p', { class: 'swipe' }, 'Swipe sideways to see all of it ⇆');
+    const fits = () => f.classList.toggle('overflows', f.scrollWidth > f.clientWidth + 1);
+    if (window.ResizeObserver) new ResizeObserver(fits).observe(f); else requestAnimationFrame(fits);
+    const act = h('span', { class: 'act' }, 'Hide ▴');
+    const btn = h('button', { type: 'button', class: 'fold-btn', 'aria-expanded': 'true' }, h('span', {}, 'Diagram'), act);
+    const fold = h('div', { class: 'fold diagram open' }, btn, f, hint);
+    btn.onclick = () => { const open = fold.classList.toggle('open'); btn.setAttribute('aria-expanded', String(open)); act.textContent = open ? 'Hide ▴' : 'Show ▾'; };
+    return fold;
+  };
   function table(t) {
+    const cols = t.columns || [];
     const tb = h('table');
-    if (t.columns) tb.append(h('thead', {}, h('tr', {}, t.columns.map(c => h('th', {}, c)))));
-    tb.append(h('tbody', {}, (t.rows || []).map(r => h('tr', {}, r.map((c, j) => { const td = h('td', {}, String(c)); if (c === '✓' || c === 'yes') td.className = 'yes'; if (c === '✗' || c === 'no') td.className = 'no'; if (j === 0) td.style.fontWeight = '700'; return td; })))));
-    return h('div', { class: 'scroll' }, tb);   // a wide table scrolls inside its wrapper on a phone instead of widening the page
+    if (cols.length) tb.append(h('thead', {}, h('tr', {}, cols.map(c => h('th', {}, c)))));
+    tb.append(h('tbody', {}, (t.rows || []).map(r => h('tr', {}, r.map((c, j) => { const td = h('td', { 'data-label': cols[j] }, String(c)); if (c === '✓' || c === 'yes') td.className = 'yes'; if (c === '✗' || c === 'no') td.className = 'no'; if (j === 0) td.style.fontWeight = '700'; return td; })))));
+    // a wide table scrolls inside its wrapper; with more than three columns it becomes one card per row on a phone
+    return h('div', { class: 'scroll' + (cols.length > 3 ? ' cards' : '') }, tb);
   }
   function tile(t, i) {
     const el = h('div', { class: 'tile' + (t.recommended ? ' recommended' : '') });
@@ -246,7 +265,14 @@
     el.append(h('p', { class: 'muted path' }, f.path));
     if (n.lines) el.append(h('ul', {}, n.lines.map(l => h('li', {}, l))));
     if (n.change && !n.lines) el.append(h('p', {}, n.change));
-    if (n.code) el.append(codeBlock(n.code, mod && mod.color));
+    if (n.code) {
+      // folds behind a "Code · n lines" button: closed on a phone, open on wider screens
+      const count = String(n.code.text || '').replace(/\n$/, '').split('\n').length, open = !PHONE.matches;
+      const btn = h('button', { type: 'button', class: 'fold-btn', 'aria-expanded': String(open) }, `Code · ${count} lines`);
+      const fold = h('div', { class: 'fold' + (open ? ' open' : '') }, btn, codeBlock(n.code, mod && mod.color));
+      btn.onclick = () => btn.setAttribute('aria-expanded', String(fold.classList.toggle('open')));
+      el.append(fold);
+    }
     return el;
   }
   function filesGrid() {
@@ -263,7 +289,7 @@
       mods.forEach((m, i) => {
         const fs = files().filter(f => note(f).module === m.name && note(f).layer === layer);
         const cell = h('div', { class: 'cell' + (fs.length ? '' : ' empty'), 'data-module': m.name }); cell.style.setProperty('--col', color(m.color, i));
-        if (!fs.length) cell.append('no change');
+        if (!fs.length) cell.append(h('span', { class: 'sr' }, 'no change'));
         fs.forEach(f => { const n = note(f); const mark = isNew(f) ? '+ ' : isMod(f) ? '✎ ' : ''; cell.append(h('div', {}, `${mark}${f.path.split('/').pop()}${n.change ? ' · ' + n.change : ''}`, (isNew(f) || isMod(f)) ? miniPill(f) : null)); });
         g.append(cell);
       });
@@ -293,7 +319,7 @@
     tiles: s => h('div', { class: 'tiles' + (s.stack ? ' stack' : '') }, (s.items || []).map(tile)),
     code: s => codeBlock(s.code, s.edge),
     'file-tiles': () => groupedFileTiles(),
-    lifecycle: s => fig(boxesDiagram((s.states || []).map((st, i) => typeof st === 'string' ? { name: st, color: CYCLE[i % CYCLE.length] } : st), s.transitions)),
+    lifecycle: s => { const states = (s.states || []).map((st, i) => typeof st === 'string' ? { name: st, color: CYCLE[i % CYCLE.length] } : st); return fig(boxesDiagram(states, s.transitions)); },
     proposal: s => [
       h('h3', {}, 'CURRENT'), h('div', { class: 'tiles stack' }, tile({ ...s.current, color: s.current.color || 'gray' }, 0)),
       ...(s.options || []).map((o, i) => [h('h3', {}, `MODIFIED · ${o.title}`), h('div', { class: 'tiles stack' }, tile({ ...o, title: o.title }, i + 1))]).flat(),
@@ -302,21 +328,80 @@
     ],
   };
 
-  /* ---------- header, legend, nav ---------- */
+  /* ---------- header, top bar, sidebar, panels ---------- */
   function header() {
     const fs = M.files || []; const added = fs.reduce((a, f) => a + (f.added || 0), 0), removed = fs.reduce((a, f) => a + (f.removed || 0), 0);
-    const el = h('header');
+    const el = h('header', { class: 'top' });
     el.append(h('h1', {}, `${M.app} Design Map: PR #${M.pr.number}`));
-    const meta = h('div', { class: 'meta' }, pill(prUrl(), `PR #${M.pr.number}`), h('span', {}, M.pr.branch), h('span', { class: 'count' }, String(M.pr.head).slice(0, 7)), h('span', {}, M.pr.date), h('span', { html: `${fs.length} files <b class="add" style="color:var(--add)">+${added}</b> <b style="color:var(--del)">−${removed}</b>` }), h('span', {}, `Updated ${M.updated || ''}`));
-    if (M.session && M.session.url) meta.append(pill(M.session.url, M.session.name || `session ${String(M.session.id || '').slice(0, 8)}`));
-    el.append(meta);
-    el.append(h('div', { class: 'row' }, h('span', { class: 'lbl' }, 'Background:'), ...[['lavender', 'Lavender', '#cbc4e0'], ['sand', 'Sand', '#e3d9c6'], ['dark', 'Dark', '#171a24']].map(([k, n, c]) => h('button', { class: 'btn', 'data-set-theme': k },h('span', { class: 'swatch', style: `background:${c}` }), n))));
-    el.append(h('div', { class: 'row' }, h('span', { class: 'lbl' }, 'JSON tiles:'), ...[['cell', 'Cell type'], ['classic', 'Classic']].map(([k, n]) => h('button', { class: 'btn', 'data-set-json': k }, n))));
+    // phones show the first three facts on one line; the rest (.sec) open with "More"
+    const stat = (k, v, sec) => h('div', { class: 'stat' + (sec ? ' sec' : '') }, h('span', { class: 'k' }, k), h('span', { class: 'v' }, v));
+    const summary = h('div', { class: 'summary' },
+      stat('Pull request', pill(prUrl(), `PR #${M.pr.number}`)),
+      stat('Head', h('span', { class: 'count' }, String(M.pr.head).slice(0, 7))),
+      stat('Changes', h('span', { html: `${fs.length} files <b class="add">+${added}</b> <b class="del">−${removed}</b>` })),
+      stat('Branch', M.pr.branch || '', true),
+      stat('Date', M.pr.date || '', true),
+      stat('Updated', M.updated || '', true));
+    if (M.session && M.session.url) summary.append(stat('Session', pill(M.session.url, M.session.name || `session ${String(M.session.id || '').slice(0, 8)}`), true));
+    const more = h('button', { class: 'more-btn', type: 'button', 'aria-expanded': 'false' }, 'More ▾');
+    more.onclick = () => { const on = el.classList.toggle('show-more'); more.setAttribute('aria-expanded', on); more.textContent = on ? 'Less ▴' : 'More ▾'; };
+    summary.append(more);
+    el.append(summary);
+    return el;
+  }
+  const toolBtn = (text, sheetId, label) => { const b = h('button', { class: 'btn', type: 'button', 'aria-haspopup': 'dialog', 'aria-controls': sheetId, 'aria-label': label }, text); b.onclick = () => openSheet(sheetId, b); return b; };
+  /* under 1400px: a sticky bar with a section picker, Key and Settings */
+  function topbar(secs) {
+    const sel = h('select', { class: 'jump', 'aria-label': 'Jump to section' }, h('option', { value: '' }, 'Sections'), secs.map(([id, t]) => h('option', { value: id }, t)));
+    sel.onchange = () => { const t = sel.value && document.getElementById(sel.value); if (t) t.scrollIntoView(); };
+    return h('div', { class: 'topbar' }, h('div', { class: 'bar-in' }, h('span', { class: 'jump-wrap' }, sel), h('span', { class: 'tools' }, toolBtn('Key', 'sheet-key'), toolBtn(h('span', { class: 'ico', 'aria-hidden': 'true' }, '⚙'), 'sheet-settings', 'Settings'))));
+  }
+  /* 1400px and wider: a sticky sidebar with the section list, Key and Settings */
+  function sidebar(secs) {
+    return h('aside', { class: 'sidebar' },
+      h('div', { class: 'side-app' }, M.app || ''), h('div', { class: 'side-pr' }, `PR #${M.pr.number}`),
+      h('nav', { class: 'toc', 'aria-label': 'Sections' }, secs.map(([id, t]) => h('a', { href: '#' + id, 'data-toc': id }, t))),
+      h('div', { class: 'side-tools' }, toolBtn('Key', 'sheet-key'), toolBtn([h('span', { class: 'ico', 'aria-hidden': 'true' }, '⚙'), 'Settings'], 'sheet-settings')));
+  }
+  function settings() {
+    const seg = (label, attr, opts) => h('div', { class: 'set' }, h('div', { class: 'lbl' }, label), h('div', { class: 'seg', role: 'group', 'aria-label': label }, opts.map(([k, n, c]) => h('button', { type: 'button', [attr]: k, 'aria-pressed': 'false' }, c ? h('span', { class: 'swatch', style: `background:${c}` }) : null, n))));
+    const el = h('div', {},
+      seg('Background', 'data-set-theme', [['slate', 'Slate', '#d5dae3'], ['lavender', 'Lavender', '#cbc4e0'], ['sand', 'Sand', '#e3d9c6'], ['dark', 'Dark', '#171a24']]),
+      seg('JSON tiles', 'data-set-json', [['cell', 'Cell type'], ['classic', 'Classic']]));
     el.querySelectorAll('[data-set-theme]').forEach(b => b.onclick = () => setTheme(b.dataset.setTheme));
     el.querySelectorAll('[data-set-json]').forEach(b => b.onclick = () => setJson(b.dataset.setJson));
-    el.append(legend());
-    el.append(h('nav', { class: 'nav' }, (M.sections || []).map((s, i) => h('a', { class: 'pill', href: '#' + (s.id || slug(s.title || `section-${i}`)) }, s.title))));
     return el;
+  }
+  /* Key and Settings open as a panel (a bottom sheet on a phone); Esc, the backdrop or × closes it */
+  let opener = null;
+  function sheet(id, title, body) {
+    const close = h('button', { class: 'btn', type: 'button', 'aria-label': 'Close' }, '×'); close.onclick = closeSheets;
+    return h('div', { class: 'sheet', id, role: 'dialog', 'aria-modal': 'true', 'aria-label': title, hidden: '' }, h('div', { class: 'sheet-head' }, h('h2', {}, title), close), h('div', { class: 'sheet-body' }, body));
+  }
+  function openSheet(id, from) {
+    closeSheets(); opener = from || null;
+    const s = document.getElementById(id); if (!s) return;
+    document.querySelector('.backdrop').hidden = false; s.hidden = false; document.documentElement.classList.add('sheet-open');
+    s.querySelector('.sheet-head .btn').focus();
+  }
+  function closeSheets() {
+    const open = document.querySelector('.sheet:not([hidden])'); if (!open) return;
+    open.hidden = true; document.querySelector('.backdrop').hidden = true; document.documentElement.classList.remove('sheet-open');
+    if (opener) { opener.focus(); opener = null; }
+  }
+  /* the section being read is marked in the sidebar and shown in the top bar's picker */
+  function spy(secs) {
+    if (!window.IntersectionObserver) return;
+    const sel = document.querySelector('.jump'), links = {};
+    document.querySelectorAll('[data-toc]').forEach(a => { links[a.dataset.toc] = a; });
+    const seen = {};
+    const io = new IntersectionObserver(es => {
+      es.forEach(e => { seen[e.target.id] = e.isIntersecting; });
+      const cur = secs.map(([id]) => id).find(id => seen[id]); if (!cur) return;
+      for (const id in links) { if (id === cur) links[id].setAttribute('aria-current', 'true'); else links[id].removeAttribute('aria-current'); }
+      if (sel) sel.value = cur;
+    }, { rootMargin: '-80px 0px -55% 0px' });
+    secs.forEach(([id]) => { const e = document.getElementById(id); if (e) io.observe(e); });
   }
   function legend() {
     const sw = (name, c, edge) => h('span', { class: 'sw' + (edge ? ' edge' : '') }, h('i', { style: `border-color:${c};${edge ? '' : 'background:' + c}` }), name);
@@ -340,8 +425,13 @@
     const root = document.getElementById('map'); root.innerHTML = '';
     document.documentElement.setAttribute('data-app', M.app || ''); document.documentElement.setAttribute('data-pr', M.pr.number); document.documentElement.setAttribute('data-head', M.pr.head);
     document.title = `${M.app} Design Map: PR #${M.pr.number}`;
+    const secs = (M.sections || []).map((s, i) => [secId(s, i), s.title || '']);
     root.append(header(), ...(M.sections || []).map(section));
-    highlightProse(root); initTheme();
+    const layout = root.parentElement; layout.insertBefore(sidebar(secs), root); layout.parentElement.insertBefore(topbar(secs), layout);
+    const backdrop = h('div', { class: 'backdrop', hidden: '' }); backdrop.onclick = closeSheets;
+    document.body.append(backdrop, sheet('sheet-key', 'Key', legend()), sheet('sheet-settings', 'Settings', settings()));
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheets(); });
+    highlightProse(root); initTheme(); spy(secs);
   }
   document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', main) : main();
 })();
