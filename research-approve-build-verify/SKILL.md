@@ -19,6 +19,16 @@ Before any research: `git fetch`, list open PRs (`gh pr list`, or the GitHub too
 
 Each checkpoint shows the recommended option first. The user approves the list of slices once per increment (one line per slice). After that, a slice proposal waits for the user only when it carries an ask-list item (`design-rulebook` SC-7), a contract change, or anything hard to reverse; otherwise show it (one screen) and continue to Phase 3. Without an approved slice list, every proposal waits as before. When the user has said "auto-approve" (or "continue with my recommended options") for the session, the recommended option counts as approved: record the decision with the date in `docs/architecture/STATE.md` (or in the PR description when the repo has no such file) and move on. Contract changes and anything hard to reverse still wait for the user.
 
+## Scope rules
+
+The SC ids come from the `design-rulebook` skill. When it is installed, its text is the rule; otherwise these lines are.
+
+- **SC-1 Source or park.** An item enters scope only with a source: the user's words, a cited production failure that would hit this deployment, or a cited law, carrier or platform rule that applies to it. Anything else is one line in `docs/parked.md`.
+- **SC-4 Slice cap.** One PR, about 500 changed production lines (tests excluded), at most 5 technical defaults. Over the cap, cut to the part the user can use and park the rest; the cut is not a question.
+- **SC-6 Process fits risk.** Default is the light loop: research, a one-screen proposal, the scope check, TDD, one QA pass, a PR. Full process (ADR, contract logs, design map) only for a new module or service, a change to a contract between modules, or a new outside service.
+- **SC-7 Ask-list.** Ask the user only about money (a new paid service, or more than $5/month added), anything hard to undo (deleting data, registrations, external accounts), a request that would exceed twice the slice cap, or behaviour that notifies the user more often or changes what happens to their data.
+- **SC-9 Size.** Each PR reports production, test and doc lines and open items. Flag docs growing faster than code, or open items rising three PRs in a row.
+
 ## Phase 1: Parallel read-only research
 
 First recall lessons: if the project keeps a file of lessons from earlier PRs (for example the kept lessons of an `agent-grade-and-learn` store, when that skill is installed), search it for the feature's domain words and the modules it touches, and give the matching lessons to every subagent below. If there is no lessons file, write "Lessons used: none kept for this project" in the proposal and continue.
@@ -96,11 +106,11 @@ Parked: automatic refund (docs/parked.md)
 - none (technical default: no automatic refund in this slice)
 ```
 
-Before showing it, run the `gatekeeper` (Job 4, scope check) on the proposal file and apply its cuts. Then stop for approval as the Approval mode says. Do not write or modify any code before the proposal is approved, by the user or by the approved slice list when it carries no ask-list item. If the user requests changes, revise the proposal and wait again.
+Before showing it, run the `gatekeeper` (Job 4, scope check) on the proposal file and apply its cuts. When that agent is not installed, give the proposal file and the Scope rules above to a fresh-context, read-only subagent, ask it which items to cut or park and why, and apply its cuts. Then stop for approval as the Approval mode says. Do not write or modify any code before the proposal is approved, by the user or by the approved slice list when it carries no ask-list item. If the user requests changes, revise the proposal and wait again.
 
 ## Phase 3: Implement with TDD
 
-After approval, build in red-green-refactor cycles, one row of the approved test plan per cycle (the `test-driven-development` skill). Never write several tests ahead of the code, and never write code for a row before its test has failed.
+After approval, build in red-green-refactor cycles, one row of the approved test plan per cycle (the `test-driven-development` skill, when installed; the steps below are the rule either way). Never write several tests ahead of the code, and never write code for a row before its test has failed.
 
 1. **Red.** Write one test for the next row. Run it and confirm it fails for the expected reason (for a new class: compile error, then an empty stub, then the assertion failure). Commit it alone as `test(<module>): ...`, so the red step is on record.
 2. **Green.** Write the least production code that makes that test pass, following the conventions the mapper found. Run the test, then the module's suite. Commit as `feat(<module>): ...` or `fix(<module>): ...`.
@@ -125,7 +135,7 @@ Launch a QA subagent that has not seen the implementation reasoning. Give it onl
 4. Docs, API specs and the manual test matrix agree with each other and with the code.
 5. The implementation matches the approved architecture diagram.
 6. The proposal's "Lessons used" list was followed.
-7. Tests use an injected clock, no sleeps and no test-only overloads; no value, call or step is copied three times.
+7. Tests use an injected clock, no sleeps and no test-only overloads; no value, call or step is copied three times. Every new or changed test follows the project's test-style rules (in `CLAUDE.md` or equivalent), when it has them.
 8. Red came first: every `feat`/`fix` commit is preceded by a `test` commit, and the new test fails when run at that `test` commit. Check at least three cycles by checking them out.
 
 The QA agent reports findings only; it does not fix them.
