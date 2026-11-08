@@ -220,18 +220,26 @@
     const R = RENDER[s.type]; if (R) wrap.append(...[R(s)].flat(3).filter(Boolean)); else wrap.append(h('p', { class: 'muted' }, `unknown section type ${s.type}`));
     return wrap;
   }
-  /* a diagram sits in a tile whose header bar ("Diagram … Hide ▴ / Show ▾") folds it, open at first; folded, the bar stays.
-     The figure scrolls sideways at a readable size; a "Swipe sideways" line shows while it overflows */
+  /* a tile whose full-width header bar ("<label> … Hide ▴ / Show ▾") folds what is under it, open at first; folded, the bar stays */
+  function foldTile(label, kind, ...body) {
+    const act = h('span', { class: 'act' }, 'Hide ▴');
+    const btn = h('button', { type: 'button', class: 'fold-btn', 'aria-expanded': 'true' }, h('span', {}, label), act);
+    const fold = h('div', { class: `fold bar ${kind} open` }, btn, ...body);
+    btn.onclick = () => { const open = fold.classList.toggle('open'); btn.setAttribute('aria-expanded', String(open)); act.textContent = open ? 'Hide ▴' : 'Show ▾'; };
+    return fold;
+  }
+  /* a diagram sits in a "Diagram" fold tile. The figure scrolls sideways at a readable size; a "Swipe sideways" line shows while it overflows */
   const fig = svg => {
     const f = h('figure', {}, svg), hint = h('p', { class: 'swipe' }, 'Swipe sideways to see all of it ⇆');
     const fits = () => f.classList.toggle('overflows', f.scrollWidth > f.clientWidth + 1);
     if (window.ResizeObserver) new ResizeObserver(fits).observe(f); else requestAnimationFrame(fits);
-    const act = h('span', { class: 'act' }, 'Hide ▴');
-    const btn = h('button', { type: 'button', class: 'fold-btn', 'aria-expanded': 'true' }, h('span', {}, 'Diagram'), act);
-    const fold = h('div', { class: 'fold diagram open' }, btn, f, hint);
-    btn.onclick = () => { const open = fold.classList.toggle('open'); btn.setAttribute('aria-expanded', String(open)); act.textContent = open ? 'Hide ▴' : 'Show ▾'; };
-    return fold;
+    return foldTile('Diagram', 'diagram', f, hint);
   };
+  /* "What changed": the map's short summary (a few bullets) in a fold tile under the PR facts; nothing when the map has none */
+  function brief() {
+    const items = [].concat(M.summary || []).filter(Boolean);
+    return items.length ? foldTile('What changed', 'brief', h('ul', {}, items.map(t => h('li', {}, t)))) : null;
+  }
   function table(t) {
     const cols = t.columns || [];
     const tb = h('table');
@@ -346,7 +354,7 @@
     const more = h('button', { class: 'more-btn', type: 'button', 'aria-expanded': 'false' }, 'More ▾');
     more.onclick = () => { const on = el.classList.toggle('show-more'); more.setAttribute('aria-expanded', on); more.textContent = on ? 'Less ▴' : 'More ▾'; };
     summary.append(more);
-    el.append(summary);
+    el.append(summary, brief());
     return el;
   }
   const toolBtn = (text, sheetId, label) => { const b = h('button', { class: 'btn', type: 'button', 'aria-haspopup': 'dialog', 'aria-controls': sheetId, 'aria-label': label }, text); b.onclick = () => openSheet(sheetId, b); return b; };

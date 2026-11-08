@@ -144,13 +144,15 @@ html.sheet-open{overflow:hidden}
 .fold-btn::after{content:'▾'}
 .fold.open>.fold-btn::after{content:'▴'}
 .fold:not(.open)>:not(.fold-btn){display:none}
-/* a diagram's tile: a full-width header bar (the fold button) over the figure; folded, only the bar shows */
-.fold.diagram{margin:12px 0;background:var(--tile);border:1px solid var(--border);border-radius:10px;overflow:hidden}
-.fold.diagram>.fold-btn{display:flex;width:100%;justify-content:space-between;min-height:48px;padding:10px 16px;background:var(--thead);color:var(--ink);text-align:left}
-.fold.diagram>.fold-btn::after{content:none}
-.fold.diagram>.fold-btn:focus-visible{outline-offset:-3px}
-.fold.diagram.open>.fold-btn{border-bottom:1px solid var(--border)}
-.fold.diagram .act{color:var(--link-ink)}
+/* a fold tile (a diagram, "What changed"): a full-width header bar (the fold button) over its body; folded, only the bar shows */
+.fold.bar{margin:12px 0;background:var(--tile);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.fold.bar>.fold-btn{display:flex;width:100%;justify-content:space-between;min-height:48px;padding:10px 16px;background:var(--thead);color:var(--ink);text-align:left}
+.fold.bar>.fold-btn::after{content:none}
+.fold.bar>.fold-btn:focus-visible{outline-offset:-3px}
+.fold.bar.open>.fold-btn{border-bottom:1px solid var(--border)}
+.fold.bar .act{color:var(--link-ink)}
+.fold.brief ul{margin:0;padding:12px 18px 14px 40px}
+.fold.brief li{margin:4px 0}
 .fold.diagram figure{margin:0;border:0;border-radius:0}
 .fold.diagram .swipe{margin:0;padding:0 16px 12px}
 

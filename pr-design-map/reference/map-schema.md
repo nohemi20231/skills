@@ -9,6 +9,7 @@ The agent writes `map.json` only. `files.json` comes from `scripts/pr-files.sh` 
   "app": "List Assistant",
   "updated": "1 Nov 2026 · 9:40 PM CT",
   "session": { "url": "https://...", "name": "optional", "id": "fallback id" },
+  "summary": ["New **add** command creates a Task", "Task gains a status field"],
   "modules": [ { "name": "cli", "color": "pink" } ],
   "layers": ["handler", "model", "repository", "schema"],
   "notes": { "<repo path>": { ... } },
@@ -18,6 +19,7 @@ The agent writes `map.json` only. `files.json` comes from `scripts/pr-files.sh` 
 ```
 
 - `template` (optional): `"classic"` renders the page with `template-classic/` (the first look: IBM Plex, light and dark, numbered sections, layered module columns, text trees, cards); omitted or `"default"` uses `template/`. `build.sh -t` overrides it.
+- `summary`: what the PR changes, three to six bullets of one short line each (a single string is one bullet). Rendered under the PR facts as a "What changed" tile that folds (Hide ▴ / Show ▾), open at first; auto-highlighted like `lines`. Omitted: no tile.
 - `modules`: one color each from pink, blue, gold, green, orange, purple, red, brown, gray (or any CSS color; classic also knows teal). Columns of the "New and modified" grid and the module diagram boxes.
 - `layers`: rows of the grid and the grouping of file tiles.
 - `notes[path]`: what the agent knows about a file in the PR. Keys: `module`, `layer`, `class` (tile heading), `change` (two to five words), `lines` (bullets), `code` (see Code), `kind`: `"table"` for DB tables and migrations (both templates group them apart); classic also shows `record`, `interface`, `enum` or `helper` as a colored kind chip.
@@ -50,4 +52,4 @@ Section `id` defaults to a slug of the title. Links, pills, highlights, the Key 
 
 ## Prose highlights
 
-Text in `lines`, `change` and table cells is auto-highlighted: CamelCase type names, CONSTANTS, ids like V104 or D1, numbers, and `**key words**`. Keep it to short phrases.
+Text in `summary`, `lines`, `change` and table cells is auto-highlighted: CamelCase type names, CONSTANTS, ids like V104 or D1, numbers, and `**key words**`. Keep it to short phrases.

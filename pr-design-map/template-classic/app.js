@@ -307,10 +307,19 @@
     el.append(h('h1', {}, `${M.app} Design Map: PR #${M.pr.number}`));
     const meta = h('p', { class: 'meta' }, pill(prUrl(), `PR #${M.pr.number}`), '·', h('span', {}, M.pr.branch), '·', h('span', { class: 'sha' }, String(M.pr.head).slice(0, 7)), '·', h('span', {}, M.pr.date), '·', h('span', { html: `${fs.length} files <span class="add">+${added}</span> <span class="del">−${removed}</span>` }), '·', h('span', {}, `Updated ${M.updated || ''}`));
     if (M.session && M.session.url) meta.append('·', pill(M.session.url, M.session.name || `session ${String(M.session.id || '').slice(0, 8)}`));
-    el.append(meta);
+    el.append(meta, brief());
     const btn = h('button', { class: 'theme-btn', id: 'themeBtn', type: 'button' }, 'Dark mode'); btn.onclick = () => setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); el.append(btn);
     el.append(legend());
     el.append(h('nav', { 'aria-label': 'Sections' }, h('ol', {}, (M.sections || []).map((s, i) => h('li', {}, h('a', { href: '#' + (s.id || slug(s.title || `section-${i}`)) }, s.title))))));
+    return el;
+  }
+  /* "What changed": the map's short summary (a few bullets) under the PR facts; its header button folds it, open at first; nothing when the map has none */
+  function brief() {
+    const items = [].concat(M.summary || []).filter(Boolean); if (!items.length) return null;
+    const act = h('span', { class: 'act' }, 'Hide ▴');
+    const btn = h('button', { type: 'button', class: 'brief-btn', 'aria-expanded': 'true' }, h('span', {}, 'What changed'), act);
+    const el = h('div', { class: 'brief open' }, btn, h('ul', {}, items.map(t => h('li', {}, t))));
+    btn.onclick = () => { const open = el.classList.toggle('open'); btn.setAttribute('aria-expanded', String(open)); act.textContent = open ? 'Hide ▴' : 'Show ▾'; };
     return el;
   }
   function legend() {

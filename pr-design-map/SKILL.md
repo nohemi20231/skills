@@ -30,13 +30,13 @@ Both templates render the same map.json. The default is `template/`; `"template"
    It writes PR number, URL, owner, repo, branch, head sha, base, date, and for every changed file its status, lines added and removed, total lines at head, and the SHA-256 diff anchor. Never type any of these by hand.
 
 2. **Scope.** Find the previous map for the app (title `<App> Design Map: PR #`). Save its `index.html` to disk with a file-based read (never into the conversation) and run `scripts/extract-map.sh index.html map map.json`; an older multi-file map has `map.json` as its own file. Read that `map.json` (a few KB), never the page. Compare:
-   - Same PR, new head: `git diff --name-only <previous head>..<head>`. Empty: update `updated` only. Otherwise rewrite only the sections whose `files` intersect the changed files, and the `notes` of those files.
+   - Same PR, new head: `git diff --name-only <previous head>..<head>`. Empty: update `updated` only. Otherwise rewrite only the sections whose `files` intersect the changed files, the `notes` of those files, and `summary`.
    - New PR with a previous map: copy `modules`, `layers` and the structural sections (modules, tree, lifecycle, result matrix) whose `files` do not intersect this PR's diff; write new `sequence`, `json` and `notes`; `file-tiles` and the grid rebuild themselves from `files.json`.
    - No previous map: write map.json from scratch, starting from `example/map.json`.
 
 3. **Read only what the rewritten sections need.** The diff, the files in it, and their direct importers and callees found by grep. Not whole modules. `wc -l` first; a file over 400 lines in parts; never generated, vendored or minified files. Design docs only when they name a file in the diff.
 
-4. **Write map.json** per `reference/map-schema.md`. Short labels, two to five word `change` notes, code one statement per line with a short comment above each part. Every path in `notes` and `files` must appear in `files.json`. Note the session URL (and name, if known) in `session`; never invent a name. Set `updated` to the publish time in the reader's zone, e.g. `31 Oct 2026 · 1:30 PM CT`.
+4. **Write map.json** per `reference/map-schema.md`. A `summary` of what the PR changes: three to six bullets, one short line each, from the diff (rewrite it whenever the diff changes). Short labels, two to five word `change` notes, code one statement per line with a short comment above each part. Every path in `notes` and `files` must appear in `files.json`. Note the session URL (and name, if known) in `session`; never invent a name. Set `updated` to the publish time in the reader's zone, e.g. `31 Oct 2026 · 1:30 PM CT`.
 
 5. **Build and check.**
 

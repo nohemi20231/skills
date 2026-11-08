@@ -2,6 +2,11 @@
   "app": "List Assistant",
   "updated": "1 Nov 2026 · 9:40 PM CT",
   "session": { "url": "https://claude.ai/code/session/abcdef1234", "id": "abcdef1234" },
+  "summary": [
+    "New **add** command creates a Task from a title and a due date",
+    "Task gains a status field, OPEN until **done**",
+    "TaskRepo.save writes the status; migration 0004 adds the column"
+  ],
   "modules": [
     { "name": "cli", "color": "pink" },
     { "name": "domain", "color": "blue" },
