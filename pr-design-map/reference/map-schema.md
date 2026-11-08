@@ -44,7 +44,7 @@ Line numbers are 1-based. Added lines get a `+` gutter mark, a yellow left bar a
 | `table` | `columns`, `rows`, optional `colors` | table; `✓` and `✗` cells are colored. `colors` gives one color per column (a command's color, say); classic colors that column's header and its `●` marks with it |
 | `tiles` | `items: [{title, chip, lines, code, json, color, recommended}]`, `stack` | bordered tiles. A `chip` naming a kind (record, interface, enum, helper / class, table) colors the tile by kind in classic |
 | `code` | `code`, `edge` (color) | one code block |
-| `file-tiles` | none | one tile per file in `files`, grouped by module and layer, with line-count and link pills from `files.json`; `kind: "table"` notes go under "Tables and migrations" |
+| `file-tiles` | none | one tile per file in `files`, grouped by module and layer, with line-count and link pills from `files.json`; `kind: "table"` notes go under "Tables and migrations". Then two lists, one row per file, folded at first with the count in the bar: "Tests" (a note with module or layer `tests`, a test folder such as `src/test/` or `tests/`, or a test file name such as `FooTest`, `FooIT`, `test_foo.py`, `foo.test.ts`) and "Other files" (every file without a note) |
 | `lifecycle` | `states: ["OPEN", ...]` or `[{name, color}]`, `transitions: [{from, to, label}]` | SVG state diagram |
 | `proposal` | `current: tile`, `options: [tile]`, `comparison: table`, `decisions: [tile]` | CURRENT first, each MODIFIED option stacked below, comparison table, decision tiles with the recommended one marked |
 

@@ -5,6 +5,9 @@
     { "path": "src/cli/parser.py", "status": "modified", "added": 9, "removed": 2, "lines": 131, "anchor": "1a2b3c4d5e6f70819203a4b5c6d7e8f91a2b3c4d5e6f70819203a4b5c6d7e8f9" },
     { "path": "src/domain/task.py", "status": "modified", "added": 22, "removed": 4, "lines": 96, "anchor": "2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a" },
     { "path": "src/storage/task_repo.py", "status": "modified", "added": 14, "removed": 19, "lines": 135, "anchor": "3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b" },
-    { "path": "migrations/0004_task_status.sql", "status": "added", "added": 11, "removed": 0, "lines": 11, "anchor": "4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c" }
+    { "path": "migrations/0004_task_status.sql", "status": "added", "added": 11, "removed": 0, "lines": 11, "anchor": "4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c" },
+    { "path": "tests/test_add_task.py", "status": "added", "added": 37, "removed": 0, "lines": 37, "anchor": "5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d" },
+    { "path": "tests/test_task_repo.py", "status": "modified", "added": 12, "removed": 3, "lines": 88, "anchor": "6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e" },
+    { "path": "README.md", "status": "modified", "added": 4, "removed": 0, "lines": 52, "anchor": "708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f" }
   ]
 }

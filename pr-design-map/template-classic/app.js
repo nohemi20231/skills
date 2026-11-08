@@ -44,6 +44,9 @@
   const isNew = f => f.status === 'added';
   const isMod = f => f.status === 'modified' || f.status === 'renamed';
   const files = () => (M.files || []).filter(f => f.status !== 'deleted');
+  /* a test file: a "tests" module or layer in its note, a test folder, or a test file name (FooTest, FooIT, test_foo.py, foo.test.ts, foo_test.go) */
+  const TEST_PATH = /(^|\/)(src\/test|tests?|__tests__|spec)\/|(Tests?|IT|Spec)\.\w+$|(^|\/)test_[^/]+$|[._-](test|spec)\.\w+$/;
+  const isTest = f => note(f).module === 'tests' || note(f).layer === 'tests' || TEST_PATH.test(f.path);
   const moduleOf = name => (M.modules || []).find(m => m.name === name);
   const moduleColor = name => { const i = (M.modules || []).findIndex(m => m.name === name); return i < 0 ? null : color(M.modules[i].color, i); };
 
@@ -103,7 +106,7 @@
 
   /* ---------- prose highlights: key words bold, names in the mono face ---------- */
   const HL = /\*\*(.+?)\*\*|\b([A-Z][a-z0-9]+(?:[A-Z][a-z0-9]*)+)\b|\b([A-Z][A-Z0-9_]{2,})\b/g;
-  const SKIP = 'pre,code,a,h1,h2,h3,.pill,.chip,.kchip,.count,.legend,.tag,nav,.meta,svg,.pkg,.card-head';
+  const SKIP = 'pre,code,a,h1,h2,h3,.pill,.chip,.kchip,.count,.legend,.tag,nav,.meta,svg,.pkg,.card-head,.row>.name,button';
   function highlightProse(root) {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => n.parentElement.closest(SKIP) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
     const nodes = []; while (walker.nextNode()) nodes.push(walker.currentNode);
@@ -223,6 +226,14 @@
 
   /* ---------- components ---------- */
   const fig = svg => h('figure', {}, h('div', { class: 'scroll' }, svg));
+  /* a surface card whose full-width header button ("<label> … Hide ▴ / Show ▾") folds its body */
+  function foldBox(label, kind, body, open = true) {
+    const act = h('span', { class: 'act' }, open ? 'Hide ▴' : 'Show ▾');
+    const btn = h('button', { type: 'button', class: 'foldbox-btn', 'aria-expanded': String(open) }, h('span', {}, label), act);
+    const el = h('div', { class: `foldbox ${kind}` + (open ? ' open' : '') }, btn, body);
+    btn.onclick = () => { const now = el.classList.toggle('open'); btn.setAttribute('aria-expanded', String(now)); act.textContent = now ? 'Hide ▴' : 'Show ▾'; };
+    return el;
+  }
   function table(t) {
     const colors = (t.colors || []).map((c, i) => color(c, i));
     const tb = h('table');
@@ -250,28 +261,49 @@
     if (extra && extra.links) el.append(h('div', { class: 'links' }, extra.links));
     return el;
   }
+  const fileName = (f, n) => n.class || f.path.split('/').pop();
+  function fileChips(f, n) {
+    const out = [];
+    if (isNew(f)) out.push(h('span', { class: 'chip new' }, 'NEW')); else if (isMod(f)) out.push(h('span', { class: 'chip mod' }, '✎ modified'));
+    if (n.layer) out.push(h('span', { class: 'chip' }, n.layer));
+    return out;
+  }
+  const fileLinks = f => [countPill(f), pill(fileUrl(f), 'View file'), isNew(f) || isMod(f) ? pill(diffUrl(f), `View changes ${delta(f)}`) : null].filter(Boolean);
   function fileCard(f, i) {
     const n = note(f); const mod = moduleOf(n.module);
-    const chips = [];
-    if (isNew(f)) chips.push(h('span', { class: 'chip new' }, 'NEW')); else if (isMod(f)) chips.push(h('span', { class: 'chip mod' }, '✎ modified'));
-    if (n.layer) chips.push(h('span', { class: 'chip' }, n.layer));
-    const links = [countPill(f), pill(fileUrl(f), 'View file')]; if (isNew(f) || isMod(f)) links.push(pill(diffUrl(f), `View changes ${delta(f)}`));
-    const t = { title: n.class || f.path.split('/').pop(), chip: n.kind, lines: n.lines, text: !n.lines ? n.change : null, code: n.code, color: mod && mod.color };
-    const el = card(t, i, { chips, sub: f.path, links });
+    const t = { title: fileName(f, n), chip: n.kind, lines: n.lines, text: !n.lines ? n.change : null, code: n.code, color: mod && mod.color };
+    const el = card(t, i, { chips: fileChips(f, n), sub: f.path, links: fileLinks(f) });
     if (!kindColor(n.kind)) col(el, moduleColor(n.module) || color(null, i));
     return el;
   }
+  /* a file as one list row: name in its module's color, chips, the change note and the links on one line; the path, note lines and code (folded) under it */
+  function fileRow(f) {
+    const n = note(f); const c = kindColor(n.kind) || moduleColor(n.module);
+    const row = col(h('li', { class: 'row' }), c);
+    row.append(h('span', { class: 'name' }, fileName(f, n)), ...fileChips(f, n));
+    if (n.change) row.append(h('span', { class: 'change' }, n.change));
+    row.append(h('span', { class: 'links' }, fileLinks(f)), h('span', { class: 'pkg' }, f.path));
+    if (n.lines) row.append(h('ul', { class: 'lines' }, n.lines.map(l => h('li', {}, l))));
+    if (n.code) row.append(foldBox(`Code · ${String(n.code.text || '').replace(/\n$/, '').split('\n').length} lines`, 'code', codeBlock(n.code, c), false));
+    return row;
+  }
+  /* Tests and Other files: a fold card of list rows at every width, folded at first, the file count in its header */
+  const fileList = (title, fs) => foldBox(`${title} · ${fs.length} file${fs.length > 1 ? 's' : ''}`, 'files', h('ul', { class: 'rows' }, fs.map(fileRow)), false);
+  /* module · layer groups as cards, then database tables as cards, then every test file and every other file as two folded lists */
   function groupedFileCards() {
-    const mods = M.modules || [], layers = M.layers || []; const out = []; let i = 0; const seen = new Set();
+    const mods = M.modules || [], layers = M.layers || []; const out = []; let i = 0;
+    const isTable = f => note(f).kind === 'table';
+    const tests = files().filter(f => isTest(f) && !isTable(f)), seen = new Set(tests.map(f => f.path));
     mods.forEach((m, mi) => layers.forEach(layer => {
-      const fs = files().filter(f => note(f).module === m.name && note(f).layer === layer && note(f).kind !== 'table');
+      const fs = files().filter(f => !seen.has(f.path) && note(f).module === m.name && note(f).layer === layer && !isTable(f));
       if (!fs.length) return; fs.forEach(f => seen.add(f.path));
       out.push(h('div', { class: 'group-title' }, col(h('h3', {}, `${m.name} ${layer}`), color(m.color, mi)), h('span', { class: 'pkg' }, `${fs.length} file${fs.length > 1 ? 's' : ''}`)), h('div', { class: 'cards' }, fs.map(f => fileCard(f, i++))));
     }));
-    const rest = files().filter(f => !seen.has(f.path) && note(f).kind !== 'table');
-    if (rest.length) out.push(h('div', { class: 'group-title' }, h('h3', {}, 'Other files')), h('div', { class: 'cards' }, rest.map(f => fileCard(f, i++))));
-    const tables = files().filter(f => note(f).kind === 'table');
+    const tables = files().filter(isTable);
     if (tables.length) out.push(h('div', { class: 'group-title' }, h('h3', {}, 'Database tables'), h('span', { class: 'pkg' }, 'tables and migrations')), h('div', { class: 'cards' }, tables.map(f => fileCard(f, i++))));
+    const rest = files().filter(f => !seen.has(f.path) && !isTable(f));
+    if (tests.length) out.push(fileList('Tests', tests));
+    if (rest.length) out.push(fileList('Other files', rest));
     return out;
   }
   const steps = (items, stack, render) => h('div', { class: 'three' + (stack ? ' stack' : '') }, items.map((it, i) => { const c = color(it.color, i); return h('div', { class: 'step' }, it.tag ? col(h('span', { class: 'tag' }, it.tag), c) : null, it.title ? h('h3', {}, it.title) : null, render(it, c, i)); }));
@@ -313,14 +345,10 @@
     el.append(h('nav', { 'aria-label': 'Sections' }, h('ol', {}, (M.sections || []).map((s, i) => h('li', {}, h('a', { href: '#' + (s.id || slug(s.title || `section-${i}`)) }, s.title))))));
     return el;
   }
-  /* "What changed": the map's short summary (a few bullets) under the PR facts; its header button folds it, open at first; nothing when the map has none */
+  /* "What changed": the map's short summary (a few bullets) in a fold card under the PR facts, open at first; nothing when the map has none */
   function brief() {
-    const items = [].concat(M.summary || []).filter(Boolean); if (!items.length) return null;
-    const act = h('span', { class: 'act' }, 'Hide ▴');
-    const btn = h('button', { type: 'button', class: 'brief-btn', 'aria-expanded': 'true' }, h('span', {}, 'What changed'), act);
-    const el = h('div', { class: 'brief open' }, btn, h('ul', {}, items.map(t => h('li', {}, t))));
-    btn.onclick = () => { const open = el.classList.toggle('open'); btn.setAttribute('aria-expanded', String(open)); act.textContent = open ? 'Hide ▴' : 'Show ▾'; };
-    return el;
+    const items = [].concat(M.summary || []).filter(Boolean);
+    return items.length ? foldBox('What changed', 'brief', h('ul', {}, items.map(t => h('li', {}, t)))) : null;
   }
   function legend() {
     const sw = (name, c) => col(h('span', { class: 'sw' }, name), c);

@@ -153,6 +153,16 @@ html.sheet-open{overflow:hidden}
 .fold.bar .act{color:var(--link-ink)}
 .fold.brief ul{margin:0;padding:12px 18px 14px 40px}
 .fold.brief li{margin:4px 0}
+/* Tests and Other files: one row per file, a 5px left edge in the module's color; name, chips, note and pills on a line, the path under it */
+.rows{list-style:none;margin:0;padding:0}
+.rows>.row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:10px 16px;border-left:5px solid var(--tile-color,var(--border));min-width:0}
+.rows>.row+.row{border-top:1px solid var(--border)}
+.rows .name{font-weight:700;font-size:18px;overflow-wrap:anywhere}
+.rows .right{margin-left:auto;display:inline-flex;flex-wrap:wrap;gap:8px}
+.rows .path{flex-basis:100%;margin:0;font:400 15px var(--font-mono);word-break:break-word;overflow-wrap:anywhere}
+.rows .lines,.rows .fold{flex-basis:100%;min-width:0}
+.rows .lines{margin:0 0 0 22px;padding:0}
+@media (max-width:800px){.rows .right{flex-basis:100%;margin-left:0}}
 .fold.diagram figure{margin:0;border:0;border-radius:0}
 .fold.diagram .swipe{margin:0;padding:0 16px 12px}
 

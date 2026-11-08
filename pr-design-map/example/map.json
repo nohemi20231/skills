@@ -23,7 +23,8 @@
       "code": { "lang": "python", "changed": [6], "added": [7,8], "text": "@dataclass\nclass Task:\n    id: TaskId\n    title: str\n    due: date | None\n    status: TaskStatus = TaskStatus.OPEN\n    # set when status becomes DONE\n    done_at: datetime | None = None" } },
     "src/storage/task_repo.py": { "module": "storage", "layer": "repository", "class": "TaskRepo", "change": "save writes status" },
     "migrations/0004_task_status.sql": { "module": "db", "layer": "schema", "kind": "table", "class": "tasks", "change": "status column",
-      "code": { "lang": "sql", "added": [1,2,3], "text": "ALTER TABLE tasks\n  ADD COLUMN status TEXT NOT NULL DEFAULT 'open',\n  ADD COLUMN done_at TIMESTAMP NULL;" } }
+      "code": { "lang": "sql", "added": [1,2,3], "text": "ALTER TABLE tasks\n  ADD COLUMN status TEXT NOT NULL DEFAULT 'open',\n  ADD COLUMN done_at TIMESTAMP NULL;" } },
+    "tests/test_add_task.py": { "change": "add happy path, missing title" }
   },
   "sections": [
     { "type": "sequence", "title": "One request end to end", "files": ["src/cli/commands/add_task.py", "src/domain/task.py", "src/storage/task_repo.py"],
