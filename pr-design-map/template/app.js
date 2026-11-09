@@ -45,6 +45,9 @@
   const isNew = f => f.status === 'added';
   const isMod = f => f.status === 'modified' || f.status === 'renamed';
   const files = () => (M.files || []).filter(f => f.status !== 'deleted');
+  /* a test file: a "tests" module or layer in its note, a test folder, or a test file name (FooTest, FooIT, test_foo.py, foo.test.ts, foo_test.go) */
+  const TEST_PATH = /(^|\/)(src\/test|tests?|__tests__|spec)\/|(Tests?|IT|Spec)\.\w+$|(^|\/)test_[^/]+$|[._-](test|spec)\.\w+$/;
+  const isTest = f => note(f).module === 'tests' || note(f).layer === 'tests' || TEST_PATH.test(f.path);
 
   /* ---------- code ---------- */
   const KW = new Set('and as assert async await break case catch class const continue def default del do elif else enum except export extends final finally fn for from fun func function if impl import in interface is lambda let match mod new nil none not null object or override package pass private protected public pub raise return self static struct super switch then this throw throws trait try type typeof use val var void when where while with yield yes no true false True False None'.split(' '));
@@ -105,7 +108,7 @@
 
   /* ---------- prose highlights ---------- */
   const HL = /\*\*(.+?)\*\*|\b([A-Z][a-z0-9]+(?:[A-Z][a-z0-9]*)+)\b|\b([A-Z][A-Z0-9_]{2,})\b|\b([A-Z]{1,3}-[A-Z]?\d{1,4}[a-z]?|[VDOR]\d{1,4})\b|\b(\d+(?:\.\d+)?)\b/g;
-  const SKIP = 'pre,code,a,h1,h2,h3,.pill,.chip,.count,.btn,.legend,.tag,svg,.tile>h3,.path,.grid,.topbar,.sidebar,.sheet,.summary,button,select';
+  const SKIP = 'pre,code,a,h1,h2,h3,.pill,.chip,.count,.btn,.legend,.tag,svg,.tile>h3,.row>.name,.path,.grid,.topbar,.sidebar,.sheet,.summary,button,select';
   function highlightProse(root) {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => n.parentElement.closest(SKIP) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
     const nodes = []; while (walker.nextNode()) nodes.push(walker.currentNode);
@@ -220,18 +223,26 @@
     const R = RENDER[s.type]; if (R) wrap.append(...[R(s)].flat(3).filter(Boolean)); else wrap.append(h('p', { class: 'muted' }, `unknown section type ${s.type}`));
     return wrap;
   }
-  /* a diagram sits in a tile whose header bar ("Diagram … Hide ▴ / Show ▾") folds it, open at first; folded, the bar stays.
-     The figure scrolls sideways at a readable size; a "Swipe sideways" line shows while it overflows */
+  /* a tile whose full-width header bar ("<label> … Hide ▴ / Show ▾") folds its body; folded, the bar stays */
+  function foldTile(label, kind, body, open = true) {
+    const act = h('span', { class: 'act' }, open ? 'Hide ▴' : 'Show ▾');
+    const btn = h('button', { type: 'button', class: 'fold-btn', 'aria-expanded': String(open) }, h('span', {}, label), act);
+    const fold = h('div', { class: `fold bar ${kind}` + (open ? ' open' : '') }, btn, body);
+    btn.onclick = () => { const now = fold.classList.toggle('open'); btn.setAttribute('aria-expanded', String(now)); act.textContent = now ? 'Hide ▴' : 'Show ▾'; };
+    return fold;
+  }
+  /* a diagram sits in a "Diagram" fold tile, open at first. The figure scrolls sideways at a readable size; a "Swipe sideways" line shows while it overflows */
   const fig = svg => {
     const f = h('figure', {}, svg), hint = h('p', { class: 'swipe' }, 'Swipe sideways to see all of it ⇆');
     const fits = () => f.classList.toggle('overflows', f.scrollWidth > f.clientWidth + 1);
     if (window.ResizeObserver) new ResizeObserver(fits).observe(f); else requestAnimationFrame(fits);
-    const act = h('span', { class: 'act' }, 'Hide ▴');
-    const btn = h('button', { type: 'button', class: 'fold-btn', 'aria-expanded': 'true' }, h('span', {}, 'Diagram'), act);
-    const fold = h('div', { class: 'fold diagram open' }, btn, f, hint);
-    btn.onclick = () => { const open = fold.classList.toggle('open'); btn.setAttribute('aria-expanded', String(open)); act.textContent = open ? 'Hide ▴' : 'Show ▾'; };
-    return fold;
+    return foldTile('Diagram', 'diagram', [f, hint]);
   };
+  /* "What changed": the map's short summary (a few bullets) in a fold tile under the PR facts, open at first; nothing when the map has none */
+  function brief() {
+    const items = [].concat(M.summary || []).filter(Boolean);
+    return items.length ? foldTile('What changed', 'brief', h('ul', {}, items.map(t => h('li', {}, t)))) : null;
+  }
   function table(t) {
     const cols = t.columns || [];
     const tb = h('table');
@@ -252,29 +263,47 @@
     if (t.json) el.append(jsonBlock(t.json, t.unknown));
     return el;
   }
+  const moduleOf = n => (M.modules || []).find(m => m.name === n.module);
+  const fileName = (f, n) => n.class || f.path.split('/').pop();
+  function fileChips(f, n) {
+    const out = [];
+    if (isNew(f)) out.push(h('span', { class: 'chip new' }, 'NEW')); else if (isMod(f)) out.push(h('span', { class: 'chip mod' }, '✎ modified'));
+    if (n.layer) out.push(h('span', { class: 'chip layer' }, n.layer));
+    if (n.kind) out.push(h('span', { class: 'chip' }, n.kind));
+    return out;
+  }
+  const filePills = f => h('span', { class: 'right' }, countPill(f), pill(fileUrl(f), 'View file'), isNew(f) || isMod(f) ? changesPill(f) : null);
+  /* a file's code folds behind a "Code · n lines" button */
+  function codeFold(n, mod, open) {
+    const count = String(n.code.text || '').replace(/\n$/, '').split('\n').length;
+    const btn = h('button', { type: 'button', class: 'fold-btn', 'aria-expanded': String(open) }, `Code · ${count} lines`);
+    const fold = h('div', { class: 'fold' + (open ? ' open' : '') }, btn, codeBlock(n.code, mod && mod.color));
+    btn.onclick = () => btn.setAttribute('aria-expanded', String(fold.classList.toggle('open')));
+    return fold;
+  }
   function fileTile(f, i) {
-    const n = note(f); const mod = (M.modules || []).find(m => m.name === n.module);
+    const n = note(f); const mod = moduleOf(n);
     const el = h('div', { class: 'tile' + (n.code ? ' wide' : '') }); el.style.setProperty('--tile-color', color(mod && mod.color, i));
-    const head = h('h3', {}, n.class || f.path.split('/').pop());
-    if (isNew(f)) head.append(h('span', { class: 'chip new' }, 'NEW')); else if (isMod(f)) head.append(h('span', { class: 'chip mod' }, '✎ modified'));
-    if (n.layer) head.append(h('span', { class: 'chip layer' }, n.layer));
-    if (n.kind) head.append(h('span', { class: 'chip' }, n.kind));
-    const right = h('span', { class: 'right' }, countPill(f), pill(fileUrl(f), 'View file'));
-    if (isNew(f) || isMod(f)) right.append(changesPill(f));
-    head.append(right); el.append(head);
+    el.append(h('h3', {}, fileName(f, n), fileChips(f, n), filePills(f)));
     el.append(h('p', { class: 'muted path' }, f.path));
     if (n.lines) el.append(h('ul', {}, n.lines.map(l => h('li', {}, l))));
     if (n.change && !n.lines) el.append(h('p', {}, n.change));
-    if (n.code) {
-      // folds behind a "Code · n lines" button: closed on a phone, open on wider screens
-      const count = String(n.code.text || '').replace(/\n$/, '').split('\n').length, open = !PHONE.matches;
-      const btn = h('button', { type: 'button', class: 'fold-btn', 'aria-expanded': String(open) }, `Code · ${count} lines`);
-      const fold = h('div', { class: 'fold' + (open ? ' open' : '') }, btn, codeBlock(n.code, mod && mod.color));
-      btn.onclick = () => btn.setAttribute('aria-expanded', String(fold.classList.toggle('open')));
-      el.append(fold);
-    }
+    if (n.code) el.append(codeFold(n, mod, !PHONE.matches));   // closed on a phone, open on wider screens
     return el;
   }
+  /* a file as one list row: name, chips, the change note and the pills on one line; the path, note lines and code (closed) under it */
+  function fileRow(f) {
+    const n = note(f); const mod = moduleOf(n);
+    const row = h('li', { class: 'row' }); if (mod) row.style.setProperty('--tile-color', color(mod.color));
+    row.append(h('span', { class: 'name' }, fileName(f, n)), ...fileChips(f, n));
+    if (n.change) row.append(h('span', { class: 'change' }, n.change));
+    row.append(filePills(f), h('p', { class: 'muted path' }, f.path));
+    if (n.lines) row.append(h('ul', { class: 'lines' }, n.lines.map(l => h('li', {}, l))));
+    if (n.code) row.append(codeFold(n, mod, false));
+    return row;
+  }
+  /* Tests and Other files: a fold tile of list rows at every width, folded at first, the file count in its bar */
+  const fileList = (title, fs) => foldTile(`${title} · ${fs.length} file${fs.length > 1 ? 's' : ''}`, 'files', h('ul', { class: 'rows' }, fs.map(fileRow)), false);
   function filesGrid() {
     const mods = M.modules || [], layers = M.layers || [];
     const g = h('div', { class: 'grid' }); g.style.gridTemplateColumns = `150px repeat(${mods.length}, minmax(0,1fr))`;
@@ -296,18 +325,21 @@
     });
     return g;
   }
+  /* module · layer groups as tiles, then tables and migrations as tiles, then every test file and every other file as two folded lists */
   function groupedFileTiles() {
     const mods = M.modules || [], layers = M.layers || []; const out = []; let i = 0;
-    const seen = new Set();
+    const isTable = f => note(f).kind === 'table';
+    const tests = files().filter(f => isTest(f) && !isTable(f)), seen = new Set(tests.map(f => f.path));
     mods.forEach(m => layers.forEach(layer => {
-      const fs = files().filter(f => note(f).module === m.name && note(f).layer === layer && note(f).kind !== 'table');
+      const fs = files().filter(f => !seen.has(f.path) && note(f).module === m.name && note(f).layer === layer && !isTable(f));
       if (!fs.length) return; fs.forEach(f => seen.add(f.path));
       out.push(h('h3', {}, `${m.name} · ${layer}`), h('div', { class: 'tiles' }, fs.map(f => fileTile(f, i++))));
     }));
-    const rest = files().filter(f => !seen.has(f.path) && note(f).kind !== 'table');
-    if (rest.length) out.push(h('h3', {}, 'Other files'), h('div', { class: 'tiles' }, rest.map(f => fileTile(f, i++))));
-    const tables = files().filter(f => note(f).kind === 'table');
+    const tables = files().filter(isTable);
     if (tables.length) out.push(h('h3', {}, 'Tables and migrations'), h('div', { class: 'tiles' }, tables.map(f => fileTile(f, i++))));
+    const rest = files().filter(f => !seen.has(f.path) && !isTable(f));
+    if (tests.length) out.push(fileList('Tests', tests));
+    if (rest.length) out.push(fileList('Other files', rest));
     return out;
   }
   const RENDER = {
@@ -346,7 +378,7 @@
     const more = h('button', { class: 'more-btn', type: 'button', 'aria-expanded': 'false' }, 'More ▾');
     more.onclick = () => { const on = el.classList.toggle('show-more'); more.setAttribute('aria-expanded', on); more.textContent = on ? 'Less ▴' : 'More ▾'; };
     summary.append(more);
-    el.append(summary);
+    el.append(summary, brief());
     return el;
   }
   const toolBtn = (text, sheetId, label) => { const b = h('button', { class: 'btn', type: 'button', 'aria-haspopup': 'dialog', 'aria-controls': sheetId, 'aria-label': label }, text); b.onclick = () => openSheet(sheetId, b); return b; };
