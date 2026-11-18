@@ -1,0 +1,6 @@
+{
+  "name": "research-approve-build-verify",
+  "description": "Adds a feature to an existing app: parallel read-only research, design approval gate, TDD build, fresh-context QA, evidence report.",
+  "license": "Apache-2.0",
+  "keywords": ["feature-workflow", "research", "design-approval", "tdd", "qa"]
+}
