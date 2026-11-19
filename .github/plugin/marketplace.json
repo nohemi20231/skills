@@ -1,0 +1,19 @@
+{
+  "name": "skills",
+  "owner": { "name": "skills maintainer" },
+  "metadata": {
+    "description": "Agent skills for Claude Code and GitHub Copilot, one plugin per skill."
+  },
+  "plugins": [
+    {
+      "name": "pr-design-map",
+      "source": "./pr-design-map",
+      "description": "Builds a visual, color-coded, dyslexia-friendly design map of a pull request: diagrams, JSON, type hierarchies and a tile per file."
+    },
+    {
+      "name": "research-approve-build-verify",
+      "source": "./research-approve-build-verify",
+      "description": "Adds a feature to an existing app: parallel read-only research, design approval gate, TDD build, fresh-context QA, evidence report."
+    }
+  ]
+}

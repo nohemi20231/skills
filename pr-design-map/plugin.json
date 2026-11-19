@@ -1,0 +1,6 @@
+{
+  "name": "pr-design-map",
+  "description": "Builds a visual, color-coded, dyslexia-friendly design map of a pull request: diagrams, JSON, type hierarchies and a tile per file.",
+  "license": "Apache-2.0",
+  "keywords": ["pull-request", "design-map", "diagram", "code-review"]
+}
