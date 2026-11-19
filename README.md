@@ -78,6 +78,12 @@ ln -s ~/workspace/tooling/skills/research-approve-build-verify ~/.claude/skills/
 
 Restart Claude Code, then run `/research-approve-build-verify`.
 
+To uninstall, remove the link. The skill folder in this repo is not touched:
+
+```bash
+rm ~/.claude/skills/research-approve-build-verify
+```
+
 ## GitHub Copilot CLI plugins
 
 Each skill is also a plugin for the GitHub Copilot CLI, which gives the CLI the skill in every project without a sync. In a terminal with the CLI, with `OWNER` replaced by the GitHub account this repo lives under:
@@ -93,6 +99,20 @@ To update the installed plugins:
 ```bash
 copilot plugin update --all
 ```
+
+To uninstall one plugin:
+
+```bash
+copilot plugin uninstall pr-design-map
+```
+
+To remove the marketplace and every plugin installed from it (without `--force` the CLI refuses while its plugins are still installed):
+
+```bash
+copilot plugin marketplace remove skills --force
+```
+
+`copilot plugin disable pr-design-map` switches a plugin off and keeps it installed; `copilot plugin enable pr-design-map` turns it back on. Uninstalling deletes only the CLI's copy under `~/.copilot/installed-plugins/`: this repo and any synced or linked copy of the skill stay as they are.
 
 - **One plugin per skill.** `<skill>/plugin.json` makes the skill folder a plugin whose only skill is its own `SKILL.md`, and `.github/plugin/marketplace.json` lists that folder as the plugin's `source`. No skill file is moved or copied.
 - **Keep the manifest in the legacy format.** The CLI loads a plugin's root `SKILL.md` only for a legacy manifest: no `$schema` line, no `skills` path, and no `skills/` directory in the folder. The Agent Plugins format reads skills from `skills/<name>/SKILL.md` only, and that is the one location documented for the other Copilot surfaces (VS Code, the Copilot app), so these plugins are for the CLI.
