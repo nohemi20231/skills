@@ -11,15 +11,17 @@ Agent skills for Claude Code and GitHub Copilot, one folder per skill, each with
 
 ```
 research-approve-build-verify/   one folder per skill, each with a SKILL.md
-pr-design-map/
+pr-design-map/                   and a plugin.json, its GitHub Copilot CLI plugin manifest
 sync/                            tooling that delivers skills to app repos
   targets.yml                    which app repos get which skills
   scripts/                       sync script and target parser
   tests/                         tests for both
+ci/                              check that every skill is a Copilot CLI plugin, and its tests
+.github/plugin/marketplace.json  Copilot CLI marketplace: one plugin per skill
 .github/workflows/               sync and test workflows (GitHub requires this path)
 ```
 
-Any top-level folder with a `SKILL.md` is a skill. Add a skill by adding a folder next to the existing ones.
+Any top-level folder with a `SKILL.md` is a skill. Add a skill by adding a folder next to the existing ones, with a `plugin.json` and an entry in `.github/plugin/marketplace.json` (see [GitHub Copilot CLI plugins](#github-copilot-cli-plugins)); the tests fail until both are there.
 
 Only skills I wrote live here. Third-party skills I use are listed, with author, source and license, in [`THIRD_PARTY_SKILLS.md`](THIRD_PARTY_SKILLS.md).
 
@@ -76,11 +78,55 @@ ln -s ~/workspace/tooling/skills/research-approve-build-verify ~/.claude/skills/
 
 Restart Claude Code, then run `/research-approve-build-verify`.
 
+To uninstall, remove the link. The skill folder in this repo is not touched:
+
+```bash
+rm ~/.claude/skills/research-approve-build-verify
+```
+
+## GitHub Copilot CLI plugins
+
+Each skill is also a plugin for the GitHub Copilot CLI, which gives the CLI the skill in every project without a sync. In a terminal with the CLI, with `OWNER` replaced by the GitHub account this repo lives under:
+
+```bash
+copilot plugin marketplace add OWNER/skills
+copilot plugin install pr-design-map@skills
+copilot plugin install research-approve-build-verify@skills
+```
+
+To update the installed plugins:
+
+```bash
+copilot plugin update --all
+```
+
+To uninstall one plugin:
+
+```bash
+copilot plugin uninstall pr-design-map
+```
+
+To remove the marketplace and every plugin installed from it (without `--force` the CLI refuses while its plugins are still installed):
+
+```bash
+copilot plugin marketplace remove skills --force
+```
+
+`copilot plugin disable pr-design-map` switches a plugin off and keeps it installed; `copilot plugin enable pr-design-map` turns it back on. Uninstalling deletes only the CLI's copy under `~/.copilot/installed-plugins/`: this repo and any synced or linked copy of the skill stay as they are.
+
+- **One plugin per skill.** `<skill>/plugin.json` makes the skill folder a plugin whose only skill is its own `SKILL.md`, and `.github/plugin/marketplace.json` lists that folder as the plugin's `source`. No skill file is moved or copied.
+- **Keep the manifest in the legacy format.** The CLI loads a plugin's root `SKILL.md` only for a legacy manifest: no `$schema` line, no `skills` path, and no `skills/` directory in the folder. The Agent Plugins format reads skills from `skills/<name>/SKILL.md` only, and that is the one location documented for the other Copilot surfaces (VS Code, the Copilot app), so these plugins are for the CLI.
+- **Next to the sync.** The sync copies `plugin.json` into app repos with the rest of the skill folder. In a repo that has the synced copy, Copilot uses that copy and ignores the plugin's.
+- **Checked on every PR.** `ci/check-copilot-plugins.sh` fails when a skill has no manifest, names or descriptions disagree, or the marketplace lists something that is not a skill.
+- **`pr-design-map` in Copilot** builds the page (`out/index.html`); publishing it as an artifact is a Claude step.
+
 ## Development
 
 ```bash
 bash sync/tests/sync-skills.test.sh
 bash sync/tests/targets-matrix.test.sh
+bash ci/tests/check-copilot-plugins.test.sh
+bash ci/check-copilot-plugins.sh
 ```
 
 ## License
