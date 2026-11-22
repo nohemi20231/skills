@@ -17,7 +17,7 @@ sync/                            tooling that delivers skills to app repos
   targets.yml                    which app repos get which skills
   scripts/                       sync script and target parser
   tests/                         tests for both
-ci/                              check that every skill is a Copilot CLI plugin, CHANGELOG check run on pull requests, and their tests
+ci/                              check that every skill is a Copilot CLI plugin, and its tests
 fakeTestAll/                     sample screenshots of both pr-design-map designs, from a fake app with two mocked PRs
 .github/plugin/marketplace.json  Copilot CLI marketplace: one plugin per skill
 .github/workflows/               sync and test workflows (GitHub requires this path)
@@ -50,7 +50,7 @@ The whole repo has one version, `MAJOR.MINOR.PATCH`:
 - **MINOR**: a new skill, or a new step or behavior in an existing one.
 - **PATCH**: wording fixes and clarifications that don't change behavior, and fixes to the sync tooling.
 
-1. Every PR that changes a skill or the sync tooling (`sync/` apart from its tests, and the sync workflow) adds a line under `## Unreleased` in [`CHANGELOG.md`](CHANGELOG.md). The **Changelog** check fails the PR when that line is missing. For a change that needs no line, add the `skip-changelog` label. Tests run on every PR.
+1. Every PR that changes a skill folder or `sync/` adds a line under `## Unreleased` in [`CHANGELOG.md`](CHANGELOG.md). The **Changelog** check, a few lines in `.github/workflows/changelog.yml`, fails the PR when `CHANGELOG.md` is not among its changed files; it does not read the line. For a change that needs no line, add the `skip-changelog` label. Tests run on every PR.
 2. To release, a PR moves those lines under a new `## X.Y.Z - <title> (<date>)` heading. Merge it.
 3. Tag the merge commit and publish the release:
    ```bash
@@ -143,7 +143,6 @@ bash sync/tests/sync-skills.test.sh
 bash sync/tests/targets-matrix.test.sh
 bash ci/tests/check-copilot-plugins.test.sh
 bash ci/check-copilot-plugins.sh
-bash ci/tests/check-changelog.test.sh
 ```
 
 ## License

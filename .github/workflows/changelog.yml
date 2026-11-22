@@ -1,8 +1,8 @@
 name: Changelog
 
-# A pull request that changes a skill or the sync tooling must add a line to
-# CHANGELOG.md (README.md, "Releasing a change"). The skip-changelog label
-# turns the check off for one pull request.
+# A pull request that changes a skill folder or sync/ must also change
+# CHANGELOG.md (README.md, "Releasing a change"). The check does not read the
+# line. The skip-changelog label turns it off for one pull request.
 
 on:
   pull_request:
@@ -21,5 +21,11 @@ jobs:
         with:
           fetch-depth: 2
 
-      - name: CHANGELOG.md has a line for this change
-        run: bash ci/check-changelog.sh HEAD^1 HEAD
+      - name: CHANGELOG.md changes with a skill or the sync tooling
+        run: |
+          changed=$(git -c core.quotepath=off diff --name-only HEAD^1 HEAD)
+          skills=$(ls -d */SKILL.md | cut -d/ -f1 | paste -sd'|' -)
+          if grep -qE "^($skills|sync)/" <<<"$changed" && ! grep -qx 'CHANGELOG.md' <<<"$changed"; then
+            echo "::error::A skill or the sync tooling changed. Add a line under '## Unreleased' in CHANGELOG.md, or add the skip-changelog label."
+            exit 1
+          fi
