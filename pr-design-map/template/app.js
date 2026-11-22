@@ -36,12 +36,16 @@
   const prUrl = () => M.pr.url || `${repo()}/pull/${M.pr.number}`;
   const fileUrl = f => `${repo()}/blob/${M.pr.head}/${f.path}`;
   const diffUrl = f => `${prUrl()}/files#diff-${f.anchor}`;
-  /* A design page shows a design that has no pull request yet: files.json carries `design` facts in place of `pr`, and no changed files. */
-  const DESIGN = M.design || null;
+  /* A design page shows a design that has no pull request yet: files.json carries `design` facts in place of `pr` and no files.
+     build.sh refuses any other mix, so FACTS is the one or the other. */
+  const DESIGN = M.design || null, FACTS = DESIGN || M.pr;
   const pageTitle = () => DESIGN ? `${M.app} Design: ${DESIGN.name}` : `${M.app} Design Map: PR #${M.pr.number}`;
   const pageTag = () => DESIGN ? DESIGN.name : `PR #${M.pr.number}`;
-  const headSha = () => String((DESIGN || M.pr).head || '');
-  const headText = () => (headSha() ? headSha().slice(0, 7) : 'not committed') + (DESIGN && DESIGN.uncommitted ? ` · ${DESIGN.uncommitted} uncommitted` : '');
+  const headSha = () => String(FACTS.head || '');
+  const headFact = () => (headSha() ? headSha().slice(0, 7) : 'not committed') + (DESIGN && DESIGN.uncommitted ? ` · ${DESIGN.uncommitted} uncommitted` : '');
+  /* what belongs to a PR map only: a design page has no changed files */
+  const PR_ONLY_KEY_ROWS = ['Files', 'Links'], PR_ONLY_SECTIONS = ['file-tiles'];
+  const shownSections = () => (M.sections || []).filter(s => !(DESIGN && PR_ONLY_SECTIONS.includes(s.type)));
   const pill = (href, html) => h('a', { class: 'pill', href, target: '_blank', rel: 'noopener', html: html + ' ↗' });
   const delta = f => `<span class="add">+${f.added}</span> <span class="del">−${f.removed}</span>`;
   const countPill = f => h('span', { class: 'count' }, `${f.lines} lines`);
@@ -469,10 +473,10 @@
     const stat = (k, v, sec) => h('div', { class: 'stat' + (sec ? ' sec' : '') }, h('span', { class: 'k' }, k), h('span', { class: 'v' }, v));
     const summary = h('div', { class: 'summary' },
       DESIGN ? stat('Design', DESIGN.name) : stat('Pull request', pill(prUrl(), `PR #${M.pr.number}`)),
-      stat('Head', h('span', { class: 'count' }, headText())),
+      stat('Head', h('span', { class: 'count' }, headFact())),
       DESIGN ? null : stat('Changes', h('span', { html: `${fs.length} files <b class="add">+${added}</b> <b class="del">−${removed}</b>` })),
-      stat('Branch', (DESIGN || M.pr).branch || '', true),
-      stat('Date', (DESIGN || M.pr).date || '', true),
+      FACTS.branch ? stat('Branch', FACTS.branch, true) : null,   // a detached head has no branch
+      stat('Date', FACTS.date || '', true),
       stat('Updated', M.updated || '', true));
     if (M.session && M.session.url) summary.append(stat('Session', pill(M.session.url, M.session.name || `session ${String(M.session.id || '').slice(0, 8)}`), true));
     const more = h('button', { class: 'more-btn', type: 'button', 'aria-expanded': 'false' }, 'More ▾');
@@ -546,10 +550,9 @@
       ['Code', [h('span', { class: 'codekey', html: '<span class="kw">keyword</span> <span class="ty">Type</span> <span class="fn">call()</span> <span class="st">"string"</span> <span class="nm">42 →</span> <span class="cm"># comment</span>' })]],
       ['Links', [countPill(sample), h('span', { class: 'muted' }, 'lines in the file'), h('span', { class: 'pill', html: 'View file ↗' }), h('span', { class: 'pill', html: `View changes ${delta(sample)} ↗` }), h('span', { class: 'muted' }, 'added · removed in this PR')]],
     ];
-    if (DESIGN) for (const name of ['Files', 'Links']) rows.splice(rows.findIndex(r => r[0] === name), 1);   // a design page has no changed files
     if (M.legend) for (const k in M.legend) rows.push([k, M.legend[k].map((e, i) => sw(e.name, color(e.color, i), e.edge))]);
     const el = h('div', { class: 'legend' });
-    rows.forEach(([k, v]) => el.append(h('div', { class: 'k' }, k), h('div', { class: 'v' }, v)));
+    rows.filter(([k]) => !(DESIGN && PR_ONLY_KEY_ROWS.includes(k))).forEach(([k, v]) => el.append(h('div', { class: 'k' }, k), h('div', { class: 'v' }, v)));
     return el;
   }
 
@@ -558,8 +561,8 @@
     const root = document.getElementById('map'); root.innerHTML = '';
     document.documentElement.setAttribute('data-app', M.app || ''); document.documentElement.setAttribute(DESIGN ? 'data-design' : 'data-pr', DESIGN ? DESIGN.name : M.pr.number); document.documentElement.setAttribute('data-head', headSha());
     document.title = pageTitle();
-    const secs = (M.sections || []).map((s, i) => [secId(s, i), s.title || '']);
-    root.append(header(), ...(M.sections || []).map(section));
+    const shown = shownSections(), secs = shown.map((s, i) => [secId(s, i), s.title || '']);
+    root.append(header(), ...shown.map(section));
     const layout = root.parentElement; layout.insertBefore(sidebar(secs), root); layout.parentElement.insertBefore(topbar(secs), layout);
     const backdrop = h('div', { class: 'backdrop', hidden: '' }); backdrop.onclick = closeSheets;
     document.body.append(backdrop, sheet('sheet-key', 'Key', legend()), sheet('sheet-settings', 'Settings', settings()));

@@ -37,12 +37,15 @@
   const prUrl = () => M.pr.url || `${repo()}/pull/${M.pr.number}`;
   const fileUrl = f => `${repo()}/blob/${M.pr.head}/${f.path}`;
   const diffUrl = f => `${prUrl()}/files#diff-${f.anchor}`;
-  /* A design page shows a design that has no pull request yet: files.json carries `design` facts in place of `pr`, and no changed files. */
-  const DESIGN = M.design || null;
+  /* A design page shows a design that has no pull request yet: files.json carries `design` facts in place of `pr` and no files.
+     build.sh refuses any other mix, so FACTS is the one or the other. */
+  const DESIGN = M.design || null, FACTS = DESIGN || M.pr;
   const pageTitle = () => DESIGN ? `${M.app} Design: ${DESIGN.name}` : `${M.app} Design Map: PR #${M.pr.number}`;
-  const pageTag = () => DESIGN ? DESIGN.name : `PR #${M.pr.number}`;
-  const headSha = () => String((DESIGN || M.pr).head || '');
-  const headText = () => (headSha() ? headSha().slice(0, 7) : 'not committed') + (DESIGN && DESIGN.uncommitted ? ` · ${DESIGN.uncommitted} uncommitted` : '');
+  const headSha = () => String(FACTS.head || '');
+  const headFact = () => (headSha() ? headSha().slice(0, 7) : 'not committed') + (DESIGN && DESIGN.uncommitted ? ` · ${DESIGN.uncommitted} uncommitted` : '');
+  /* what belongs to a PR map only: a design page has no changed files */
+  const PR_ONLY_KEY_ROWS = ['Files', 'Links'], PR_ONLY_SECTIONS = ['file-tiles'];
+  const shownSections = () => (M.sections || []).filter(s => !(DESIGN && PR_ONLY_SECTIONS.includes(s.type)));
   const pill = (href, html) => h('a', { class: 'pill', href, target: '_blank', rel: 'noopener', html: html + ' ↗' });
   const delta = f => `<span class="add">+${f.added}</span> <span class="del">−${f.removed}</span>`;
   const countPill = f => h('span', { class: 'count' }, `${f.lines} lines`);
@@ -408,7 +411,8 @@
   const RENDER = {
     sequence: s => [fig(sequenceDiagram(s), s.caption), s.table ? table(s.table) : null],
     json: s => steps(s.items || [], s.stack, (it, c) => [it.lines ? h('ul', {}, it.lines.map(l => h('li', {}, l))) : null, jsonBlock(it.value, it.unknown, c)]),
-    modules: s => [fig(layersDiagram(s.edges), s.caption), s.table ? [h('h3', {}, 'Who talks to whom'), table(s.table)] : null],
+    modules: s => [fig(DESIGN ? lifecycleDiagram(M.modules || [], s.edges) : layersDiagram(s.edges), s.caption),   // no files to lay out on a design page: boxes and arrows only
+      s.table ? [h('h3', {}, 'Who talks to whom'), table(s.table)] : null],
     hub: s => [fig(hubDiagram(s), s.caption), s.table ? table(s.table) : null],
     tree: s => [steps(s.roots || [], s.stack, r => treeBlock(r)), labelOf(s.caption) ? h('p', { class: 'caption' }, labelOf(s.caption)) : null],
     table: s => table(s),
@@ -436,14 +440,16 @@
     const fs = M.files || []; const added = fs.reduce((a, f) => a + (f.added || 0), 0), removed = fs.reduce((a, f) => a + (f.removed || 0), 0);
     const el = h('header');
     el.append(h('h1', {}, pageTitle()));
-    const facts = DESIGN || M.pr, dot = '·';
-    const meta = h('p', { class: 'meta' }, DESIGN ? h('span', {}, DESIGN.name) : pill(prUrl(), `PR #${M.pr.number}`), dot, h('span', {}, facts.branch || ''), dot, h('span', { class: 'sha' }, headText()), dot, h('span', {}, facts.date || ''), dot,
-      DESIGN ? null : [h('span', { html: `${fs.length} files <span class="add">+${added}</span> <span class="del">−${removed}</span>` }), dot], h('span', {}, `Updated ${M.updated || ''}`));
+    // the facts in a row with a dot between them; a missing one (a detached head has no branch) leaves no hole
+    const parts = [DESIGN ? h('span', {}, DESIGN.name) : pill(prUrl(), `PR #${M.pr.number}`), FACTS.branch ? h('span', {}, FACTS.branch) : null, h('span', { class: 'sha' }, headFact()), FACTS.date ? h('span', {}, FACTS.date) : null,
+      DESIGN ? null : h('span', { html: `${fs.length} files <span class="add">+${added}</span> <span class="del">−${removed}</span>` }), h('span', {}, `Updated ${M.updated || ''}`)].filter(Boolean);
+    const row = []; parts.forEach((part, i) => { if (i) row.push('·'); row.push(part); });
+    const meta = h('p', { class: 'meta' }, row);
     if (M.session && M.session.url) meta.append('·', pill(M.session.url, M.session.name || `session ${String(M.session.id || '').slice(0, 8)}`));
     el.append(meta, brief());
     const btn = h('button', { class: 'theme-btn', id: 'themeBtn', type: 'button' }, 'Dark mode'); btn.onclick = () => setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); el.append(btn);
     el.append(legend());
-    el.append(h('nav', { 'aria-label': 'Sections' }, h('ol', {}, (M.sections || []).map((s, i) => h('li', {}, h('a', { href: '#' + (s.id || slug(s.title || `section-${i}`)) }, s.title))))));
+    el.append(h('nav', { 'aria-label': 'Sections' }, h('ol', {}, shownSections().map((s, i) => h('li', {}, h('a', { href: '#' + (s.id || slug(s.title || `section-${i}`)) }, s.title))))));
     return el;
   }
   /* "What changed": the map's short summary (a few bullets) in a fold card under the PR facts, open at first; nothing when the map has none */
@@ -462,10 +468,9 @@
       ['JSON', [h('code', { html: '<span style="color:var(--j-key)">"key"</span>' }), h('code', { html: '<span style="color:var(--j-str)">"text"</span>' }), h('code', { html: '<span style="color:var(--j-num)">42</span>' }), h('code', { html: '<span style="color:var(--j-null);font-style:italic">null</span>' }), h('code', { html: '<span style="color:var(--j-bad);font-weight:600">"unknown key"</span>' }), h('code', { html: '<span style="color:var(--c-teal);font-weight:600">TypeName</span>' })]],
       ['Links', [countPill(sample), h('span', { class: 'muted' }, 'lines in the file'), h('span', { class: 'pill', html: 'View file ↗' }), h('span', { class: 'pill', html: `View changes ${delta(sample)} ↗` }), h('span', { class: 'muted' }, 'added · removed in this PR')]],
     ];
-    if (DESIGN) for (const name of ['Files', 'Links']) rows.splice(rows.findIndex(r => r[0] === name), 1);   // a design page has no changed files
     if (M.legend) for (const k in M.legend) rows.push([k, M.legend[k].map((e, i) => sw(e.name, color(e.color, i)))]);
     const el = h('div', { class: 'legend' });
-    rows.forEach(([k, v]) => el.append(h('div', { class: 'row' }, h('span', { class: 'lbl' }, k), v)));
+    rows.filter(([k]) => !(DESIGN && PR_ONLY_KEY_ROWS.includes(k))).forEach(([k, v]) => el.append(h('div', { class: 'row' }, h('span', { class: 'lbl' }, k), v)));
     return el;
   }
 
@@ -474,7 +479,7 @@
     const root = document.getElementById('map'); root.innerHTML = '';
     document.documentElement.setAttribute('data-app', M.app || ''); document.documentElement.setAttribute(DESIGN ? 'data-design' : 'data-pr', DESIGN ? DESIGN.name : M.pr.number); document.documentElement.setAttribute('data-head', headSha());
     document.title = pageTitle();
-    root.append(header(), ...(M.sections || []).map(section));
+    root.append(header(), ...shownSections().map(section));
     highlightProse(root); initTheme();
   }
   document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', main) : main();

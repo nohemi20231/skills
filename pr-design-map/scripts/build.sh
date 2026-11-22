@@ -15,11 +15,21 @@ case $tpl in default|"") tdir=$here/template;; *) tdir=$here/template-$tpl;; esa
 [ -f "$tdir/index.html" ] || { echo "no template '$tpl' ($tdir)" >&2; exit 1; }
 
 merged=$(jq -s '.[0] * .[1]' "$files" "$map")
-# A PR map needs the PR facts and its files (pr-files.sh); a design page needs only its name (design-facts.sh). `design` wins when both are there.
-jq -e '.app and (.sections|length>0) and (((.design.name // "") != "") or (.pr.number and .pr.head and .pr.owner and .pr.repo and (.files|length>0)))' <<<"$merged" >/dev/null \
-  || { echo "merged data is missing app or sections, or has neither design.name nor pr.{number,head,owner,repo} with files" >&2; exit 1; }
-# modules and file-tiles show a PR's changed files, and a design page has none
-jq -r 'select(.design) | .sections[] | select(.type == "modules" or .type == "file-tiles") | "warning: section \"\(.title)\" (\(.type)) shows changed files, and a design page has none"' <<<"$merged" >&2
+# One page is a PR map (pr facts and files, from pr-files.sh) or a design page (design facts and nothing else, from
+# design-facts.sh). The templates switch on `design` being there, so any other mix is refused here.
+problem=$(jq -r '
+  def blank: if type == "string" then (explode | map(select(. != 32 and . != 9 and . != 10)) | length == 0) else true end;
+  if (.app | blank) or ((.sections // []) | length == 0) then "merged data is missing app or sections"
+  elif has("design") then
+    if (.design | type) != "object" or (.design.name | blank) then "a design page needs design.name"
+    elif has("pr") or ((.files // []) | length > 0) then "a design page has no pr and no files: build it from the output of design-facts.sh"
+    else "" end
+  elif (.pr.number and .pr.head and .pr.owner and .pr.repo and ((.files // []) | length > 0)) | not
+    then "merged data is missing pr.{number,head,owner,repo} or files (a design page has design.name in their place)"
+  else "" end' <<<"$merged")
+[ -z "$problem" ] || { echo "$problem" >&2; exit 1; }
+# file-tiles lists a pull request's changed files; a design page has none and leaves the section out
+jq -r 'select(.design) | .sections[] | select(.type == "file-tiles") | "warning: section \"\(.title)\" (file-tiles) is left out: a design page has no changed files"' <<<"$merged" >&2
 
 # JSON inside <script>: every "<" becomes <, so no "</script>" or "<!--" can end the block early.
 json_block() { printf '<script type="application/json" id="%s">' "$1"; jq -c . "$2" | sed 's/</\\u003c/g' | tr -d '\n'; printf '</script>\n'; }
@@ -51,7 +61,9 @@ while IFS= read -r line || [ -n "$line" ]; do
     @@STYLE@@) style; echo ;;
     @@DATA@@) json_block files-json "$files"; json_block map-json "$map" ;;
     @@APP@@) printf '<script>\n'; cat "$tdir/app.js"; printf '</script>\n' ;;
-    *) printf '%s\n' "${line//@@TITLE@@/$title}" ;;
+    # the title is free text now: cut the line at the marker rather than substitute, where bash 5.2 and later expand an & in the replacement
+    *@@TITLE@@*) printf '%s%s%s\n' "${line%%@@TITLE@@*}" "$title" "${line#*@@TITLE@@}" ;;
+    *) printf '%s\n' "$line" ;;
   esac
 done < "$tdir/index.html" > "$out/index.html"
 
