@@ -17,6 +17,7 @@ sync/                            tooling that delivers skills to app repos
   scripts/                       sync script and target parser
   tests/                         tests for both
 ci/                              check that every skill is a Copilot CLI plugin, and its tests
+fakeTestAll/                     sample screenshots of both pr-design-map designs, from a fake app with two mocked PRs
 .github/plugin/marketplace.json  Copilot CLI marketplace: one plugin per skill
 .github/workflows/               sync and test workflows (GitHub requires this path)
 ```
