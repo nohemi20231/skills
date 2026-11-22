@@ -4,6 +4,7 @@ Versions are git tags `vX.Y.Z` on `main`; pushing a tag also runs the **Sync ski
 How to pick the number and cut a release: "Releasing a change" in the [README](README.md#releasing-a-change).
 
 ## Unreleased
+- `research-approve-build-verify`: the PR description carries a `Skills loaded:` line that names every skill loaded for the slice, so a grader can read it from the PR.
 
 ## 1.0.0 - First versioned release (2026-11-01)
 - `research-approve-build-verify`: adds a feature to an existing app in phases: sync, parallel read-only research, a design proposal that waits for approval, TDD build, fresh-context QA and an evidence report. It recalls kept lessons, extracts a shared step before its third copy, and keeps tests off real time.
