@@ -29,3 +29,6 @@ jobs:
 
       - name: Every skill is a Copilot plugin
         run: bash ci/check-copilot-plugins.sh
+
+      - name: Skill crawler tests
+        run: python3 -m unittest discover -s skill-crawler/tests -t skill-crawler

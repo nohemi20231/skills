@@ -18,6 +18,7 @@ sync/                            tooling that delivers skills to app repos
   tests/                         tests for both
 ci/                              check that every skill is a Copilot CLI plugin, and its tests
 fakeTestAll/                     sample screenshots of both pr-design-map designs, from a fake app with two mocked PRs
+skill-crawler/                   crawler that finds public skills on GitHub and records their metadata, and its tests
 .github/plugin/marketplace.json  Copilot CLI marketplace: one plugin per skill
 .github/workflows/               sync and test workflows (GitHub requires this path)
 ```
@@ -25,6 +26,8 @@ fakeTestAll/                     sample screenshots of both pr-design-map design
 Any top-level folder with a `SKILL.md` is a skill. Add a skill by adding a folder next to the existing ones, with a `plugin.json` and an entry in `.github/plugin/marketplace.json` (see [GitHub Copilot CLI plugins](#github-copilot-cli-plugins)); the tests fail until both are there.
 
 Only skills I wrote live here. Third-party skills I use are listed, with author, source and license, in [`THIRD_PARTY_SKILLS.md`](THIRD_PARTY_SKILLS.md).
+
+To see what other people publish, [`skill-crawler/`](skill-crawler/README.md) crawls public `SKILL.md` files into a local dataset of metadata (name, description, license, spec problems, a body hash). The dataset is not stored in this repo.
 
 ## How app repos get these skills
 

@@ -1,4 +1,8 @@
 .DS_Store
+__pycache__/
+
+# Crawl output: other people's skill metadata, rebuilt by running the crawler.
+skill-crawler/data/
 
 # Third-party skills are used locally, not published here. See THIRD_PARTY_SKILLS.md.
 test-driven-development/

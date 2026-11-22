@@ -1,0 +1,21 @@
+# Seeds for the skill crawler, one per line.
+#   https://github.com/<owner>/<repo>   scan the repository and follow the links in its README
+#   https://<any other page>            follow the GitHub repository links on the page
+#   search:<query>                      GitHub repository search, most starred first
+
+# Reference collections
+https://github.com/anthropics/skills
+https://github.com/obra/superpowers
+
+# Curated lists
+https://github.com/travisvn/awesome-claude-skills
+https://github.com/VoltAgent/awesome-agent-skills
+https://github.com/heilcheng/awesome-agent-skills
+https://github.com/BehiSecc/awesome-claude-skills
+https://github.com/kodustech/awesome-agent-skills
+https://github.com/skillcreatorai/Awesome-Agent-Skills
+https://github.com/gmh5225/awesome-skills
+
+# Topic searches
+search:topic:agent-skills
+search:topic:claude-skills
