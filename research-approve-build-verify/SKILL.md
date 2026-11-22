@@ -31,20 +31,28 @@ The SC ids come from the `design-rulebook` skill. When it is installed, its text
 
 ## Agents
 
-Every subagent this workflow launches is one of two agent definitions, kept next to this file in `agents/`. A definition lets the harness enforce what a prompt can only ask for: the tool list.
+Apart from the optional `gatekeeper`, the subagents this workflow launches are two agent definitions, kept next to this file in `agents/`. A definition lets the harness enforce what a prompt can only ask for: the tool list.
 
 | Agent | Tools | Launched for |
 |---|---|---|
 | `read-only-analyst` | Read, Grep, Glob | the three research roles (Phase 1), the scope check when there is no `gatekeeper` (Phase 2), the docs-only check |
-| `qa-verifier` | Read, Grep, Glob, Bash | independent QA (Phase 4): runs suites and reads git; no editing tools, and its rules forbid writing through the shell |
+| `qa-verifier` | Read, Grep, Glob, Bash | independent QA (Phase 4): runs suites and reads git; no editing tools, and its rules forbid changing code, tests, docs or config through the shell |
 
-**Create them before the first launch** (in Phase 0, when the workflow runs). For each agent the session does not already offer, copy `agents/<name>.agent.md` to `.claude/agents/<name>.md` in the project, unchanged. Write the copy with the file tool, not a shell `cp`: a sandboxed shell is denied that folder. Claude Code and the Copilot CLI both read that folder. Claude Code usually offers a new file within seconds, without a restart; when the session still does not offer the agent (a session that had switched into a git worktree did not, 2026-11-21), use the fallback below for this session and the named agent from the next one. Name the files you created in the first message, and commit them alone, as the slice's first commit: `chore(agents): add research-approve-build-verify agents`. They are tooling and do not count toward the slice cap (SC-4). Never overwrite a file that is already there: when the project's copy differs from the one here, say so in the first message, keep using the project's copy, and replace it only when the user says so.
+**Create them before the first launch** (in Phase 0, when the workflow runs). For each agent the session does not already offer:
 
-**Launch them by name**, the independent ones in a single message so they run in parallel. An agent starts with an empty context, so the brief is all it knows: the feature request in the user's words, its role and the points listed for that role in this file, the matching lessons, and file paths rather than pasted contents. Leave your own conclusion out of the brief; an agent that is handed the expected answer tends to return it.
+1. Copy `agents/<name>.agent.md` to `.claude/agents/<name>.md` in the project, unchanged. Claude Code and the Copilot CLI both read that folder. Use the file tool, not a shell `cp`: a sandboxed shell is denied that folder.
+2. Name the files you created in the first message.
+3. Commit them alone, before any other commit on the branch: `chore(agents): add research-approve-build-verify agents`. They are tooling and do not count toward the slice cap (SC-4).
 
-**When the harness cannot run them** (it has no named agents, `.claude/agents/` cannot be written, or the session does not offer an agent you just created): read the definition, put its body (everything below the frontmatter) at the top of an ordinary subagent's prompt, and state the tool list in the brief. Say in the Phase 6 report that the tool limits were asked for, not enforced.
+Never overwrite a copy that is already there. When it differs from the definition here, say so in the first message, keep using the copy, and replace it only when the user says so.
 
-**To change or add an agent**, edit the files in `agents/` next to this file, in the repo this skill comes from, never a project's copy. A definition holds what stays the same from slice to slice: the job, the tool list, the rules and the shape of the report. Checklists stay in this file and travel in the brief, so a project's copy does not go stale when a checklist changes. The frontmatter has three fields: `name` (the file name without `.agent.md`), `description` (when to launch it and what it never does) and `tools` (the shortest list that does the job; leaving the line out grants every tool). It sets no `model`, so the agent runs on the session's model on either harness.
+Claude Code usually offers a new agent within seconds, without a restart. When the session still does not offer it (a session that had switched into a git worktree did not, 2026-11-21), use the fallback below for this session; the named agent is there from the next one.
+
+**Launch them by name**, the independent ones in a single message so they run in parallel. An agent starts with an empty context, so the brief is all it knows. Send what its phase lists (for a research role: the feature request in the user's words, the role and its points, and the matching lessons), as file paths rather than pasted contents. Leave your own conclusion out; an agent that is handed the expected answer tends to return it.
+
+**When the harness cannot run them** (it has no named agents, `.claude/agents/` cannot be written, or the session does not offer an agent you just created): read the definition, put its body (everything below the frontmatter) at the top of an ordinary subagent's prompt, and state the tool list in the brief. Where that subagent has no search tool of its own, allow it read-only shell commands for searching, and nothing that writes. Say in the Phase 6 report that the agents ran through the fallback: the tool limits were asked for, not enforced.
+
+**Writing a definition.** A definition holds what stays the same from slice to slice: the job, the tool list, the rules and the shape of the report. Checklists stay in this file and travel in the brief, so a project's copy does not go stale when a checklist changes. The frontmatter has three fields: `name` (the file name without `.agent.md`), `description` (when to launch it and what it never does) and `tools` (the shortest list that does the job; leaving the line out grants every tool). It sets no `model`, so the agent runs on the session's model on either harness. To change one of the two, or to add one to the workflow, edit `agents/` next to this file in the repo this skill comes from, never a project's copy.
 
 ## Phase 1: Parallel read-only research
 
@@ -74,7 +82,7 @@ Before editing anything, launch three `read-only-analyst` agents in parallel (se
 
 ## Phase 2: Synthesize, scope-check, propose
 
-Merge the three reports into a design proposal. Present it in this order:
+Merge the three reports into a design proposal. The analysts cannot run commands: run the ones their reports name under "Unverified" before those points go into the proposal. Present it in this order:
 
 1. **Architecture diagram first**: components touched, new pieces, and how data and calls flow. Then any sequence or data-model diagrams that help.
 2. The smallest change that delivers the feature, file by file.
@@ -144,7 +152,7 @@ Stay within the approved design. If implementation reveals the design will not w
 
 ## Phase 4: Independent QA with fresh context
 
-Launch the `qa-verifier` agent (see Agents), which has not seen the implementation reasoning. Give it only the feature request, the approved design, the diff and the checks below. Ask it to verify and report pass/fail with evidence for each:
+Launch the `qa-verifier` agent (see Agents), which has not seen the implementation reasoning. Give it only the feature request, the approved design, the diff and the checks below. Ask it to verify and report pass, fail or not verified, with evidence, for each:
 
 1. Existing behavior still works (regression): run the existing test suites for affected modules and services.
 2. The new feature path is covered by tests that actually exercise it.
@@ -155,7 +163,7 @@ Launch the `qa-verifier` agent (see Agents), which has not seen the implementati
 7. Tests use an injected clock, no sleeps and no test-only overloads; no value, call or step is copied three times. Every new or changed test follows the project's test-style rules (in `CLAUDE.md` or equivalent), when it has them.
 8. Red came first: every `feat`/`fix` commit is preceded by a `test` commit, and the new test fails when run at that `test` commit. Check at least three cycles by checking them out.
 
-The QA agent reports findings only; it does not fix them.
+The QA agent reports findings only; it does not fix them. A check that comes back not verified is not a pass: it goes in the Phase 6 report as still open.
 
 ## Phase 5: Fix confirmed failures
 
@@ -166,7 +174,7 @@ Fix only failures the QA agent confirmed with evidence. Do not chase speculative
 End with a short report:
 
 - What changed, file by file, in one line each
-- Validation evidence: commands run, test counts, pass/fail results
+- Validation evidence: commands run, test counts, pass/fail results, and whether the agents ran by name or through the fallback
 - QA findings and how each was resolved
 - Anything deferred or still open
 - Size (SC-9): production, test and doc lines changed, and open items before and after

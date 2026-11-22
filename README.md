@@ -11,7 +11,6 @@ Agent skills for Claude Code and GitHub Copilot, one folder per skill, each with
 
 ```
 research-approve-build-verify/   one folder per skill, each with a SKILL.md
-  agents/                        agent definitions the skill launches (<name>.agent.md)
 pr-design-map/                   and a plugin.json, its GitHub Copilot CLI plugin manifest
 sync/                            tooling that delivers skills to app repos
   targets.yml                    which app repos get which skills
@@ -25,7 +24,7 @@ fakeTestAll/                     sample screenshots of both pr-design-map design
 
 Any top-level folder with a `SKILL.md` is a skill. Add a skill by adding a folder next to the existing ones, with a `plugin.json` and an entry in `.github/plugin/marketplace.json` (see [GitHub Copilot CLI plugins](#github-copilot-cli-plugins)); the tests fail until both are there.
 
-A skill that launches subagents keeps their definitions in `<skill>/agents/<name>.agent.md`: a `name`, a `description` and a `tools` list in the frontmatter, the agent's prompt below it. Claude Code and the Copilot CLI load agents from a project's `.claude/agents/`, not from a skill folder, so the skill copies its definitions there the first time it runs in a project (see "Agents" in its `SKILL.md`). Edit the definitions here, never the copies.
+A skill that launches subagents keeps their definitions in `<skill>/agents/<name>.agent.md`: a `name`, a `description` and a `tools` list in the frontmatter, the agent's prompt below it. Claude Code and the Copilot CLI load a project's agents from its `.claude/agents/`, and a synced or linked skill folder is not on that path. So when the skill runs, it copies the definitions the session does not already offer into the project's `.claude/agents/` (see "Agents" in its `SKILL.md`). Edit the definitions here, never the copies.
 
 Only skills I wrote live here. Third-party skills I use are listed, with author, source and license, in [`THIRD_PARTY_SKILLS.md`](THIRD_PARTY_SKILLS.md).
 
