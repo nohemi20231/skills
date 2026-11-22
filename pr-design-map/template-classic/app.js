@@ -204,85 +204,87 @@
   const HUB = {
     title: 13.5, sub: 11.5, label: 12.5,                 // font sizes of .title, .sub and .arrow in style.css
     edge: 20, clear: 8, gap: 24,                         // margin around the drawing; free space beside a label; least space between groups
-    lane: 12, labelPad: 10, run: 70,                     // an arrow's offset from the group's center; arrow to its label; arrow length
+    lane: 12, labelPad: 10, arrowLen: 70,                     // an arrow's offset from the group's center; arrow to its label; arrow length
     band: 60, topH: 52, topMin: 180, textPad: 20,        // hub and store bands; the top actor's box; room beside a box's text
-    groupMin: 130, groupPad: 12, head: 34, headSub: 50,  // group box; its header without and with a sub line
+    groupMin: 130, groupPad: 12, header: 34, headerSub: 50,  // group box; its header without and with a sub line
     nameAt: 22, subAt: 40, noteAt: 14, noteH: 22,        // baselines of the group's name and sub; of the note under the last pill; the note's height
-    pill: 28, pillGap: 6, pillPad: 11, drop: 4,          // member pill; a text's baseline below the middle of its row
+    pill: 28, pillGap: 6, pillPad: 11, baseline: 4,          // member pill; a text's baseline below the middle of its row
   };
   const labelOf = v => typeof v === 'string' ? v.trim() : '';   // a label or caption is a string; true, false and nothing draw no text
-  /* px width of a text, estimated per character (M, W, m, w widest, other capitals wide; i, l, t and punctuation narrow), because the fonts
-     load after the page is drawn, so nothing can be measured here */
-  const textPx = (str, size, bold) => {
+  /* px width of a text, estimated per character, because the fonts load after the page is drawn, so nothing can be measured here */
+  const GLYPH_EM = { widest: 0.9, wide: 0.72, narrow: 0.36, other: 0.6, boldGain: 1.05 };   // M W m w; other capitals; i l t and punctuation; the rest
+  const textPx = (str, size) => {
     let em = 0;
-    for (const ch of labelOf(str)) em += /[MWmw@%]/.test(ch) ? 0.9 : /[A-Z_&#]/.test(ch) ? 0.72 : /[iljtfr.,:;'|!()[\]{}\/ -]/.test(ch) ? 0.36 : 0.6;
-    return em * size * (bold ? 1.05 : 1);
+    for (const ch of labelOf(str)) em += /[MWmw@%]/.test(ch) ? GLYPH_EM.widest : /[A-Z_&#]/.test(ch) ? GLYPH_EM.wide : /[iljtfr.,:;'|!()[\]{}\/ -]/.test(ch) ? GLYPH_EM.narrow : GLYPH_EM.other;
+    return em * size;
   };
+  const boldPx = (str, size) => textPx(str, size) * GLYPH_EM.boldGain;
   /* Where everything in a hub map goes: sizes in, positions out, nothing drawn. A group's labels sit left and right of its arrows, so
      two neighbours stand at least the widest right-hand label plus the widest left-hand one apart; the bands are at least as wide as
-     the hub's, the store's and the top actor's own text and labels, with the row of groups centred under them. */
+     the hub's, the store's and the top actor's own text and labels, with the row of groups centered under them. */
   function hubLayout(s) {
-    const K = HUB, ownOr = (own, shared) => own == null ? shared : own, wide = t => textPx(t, K.label, true);
-    const arrowsOf = (down, up, link, hasStore) => ({ down: labelOf(down), up: labelOf(up), back: up != null && up !== false, link: labelOf(link), linked: hasStore && link !== false });
+    const K = HUB, ownOr = (own, shared) => own == null ? shared : own, labelPx = t => boldPx(t, K.label);
+    // the arrows of one box: `twoWay` when one comes back up, `linked` when it reaches the store (link is false without a store)
+    const arrowsOf = (down, up, link) => ({ down: labelOf(down), up: labelOf(up), twoWay: up != null && up !== false, link: labelOf(link), linked: link !== false });
     const groups = (s.groups || []).map(group => {
-      const a = arrowsOf(ownOr(group.down, s.down), ownOr(group.up, s.up), ownOr(group.link, s.store && s.store.link), !!s.store), members = group.members || [];
+      const arrows = arrowsOf(ownOr(group.down, s.down), ownOr(group.up, s.up), s.store ? ownOr(group.link, s.store.link) : false), members = group.members || [];
       return {
-        group, members, arrows: a,
-        left: a.back ? K.lane + (a.down ? K.labelPad + wide(a.down) : 0) : 0,
-        right: Math.max(a.back ? K.lane + (a.up ? K.labelPad + wide(a.up) : 0) : (a.down ? K.labelPad + wide(a.down) : 0), a.linked && a.link ? K.labelPad + wide(a.link) : 0),
-        text: Math.max(textPx(group.name, K.title, true), textPx(group.note, K.sub), textPx(group.sub, K.sub), ...members.map(m => textPx(m, K.sub) + 2 * K.pillPad)) + 2 * K.groupPad,
-        height: (group.sub ? K.headSub : K.head) + members.length * (K.pill + K.pillGap) + (group.note ? K.noteH : 0) + K.groupPad,
+        group, members, arrows,
+        left: arrows.twoWay ? K.lane + (arrows.down ? K.labelPad + labelPx(arrows.down) : 0) : 0,
+        right: Math.max(arrows.twoWay ? K.lane + (arrows.up ? K.labelPad + labelPx(arrows.up) : 0) : (arrows.down ? K.labelPad + labelPx(arrows.down) : 0), arrows.linked && arrows.link ? K.labelPad + labelPx(arrows.link) : 0),
+        text: Math.max(boldPx(group.name, K.title), textPx(group.note, K.sub), textPx(group.sub, K.sub), ...members.map(m => textPx(m, K.sub) + 2 * K.pillPad)) + 2 * K.groupPad,
+        height: (group.sub ? K.headerSub : K.header) + members.length * (K.pill + K.pillGap) + (group.note ? K.noteH : 0) + K.groupPad,
       };
     });
-    const most = (of, least) => Math.max(least, ...groups.map(of));
-    const groupW = Math.round(most(it => it.text, K.groupMin)), left = most(it => it.left, 0), right = most(it => it.right, 0);
+    const largest = (measure, atLeast) => Math.max(atLeast, ...groups.map(measure));
+    const groupW = Math.round(largest(placed => placed.text, K.groupMin)), left = largest(placed => placed.left, 0), right = largest(placed => placed.right, 0);
     const pitch = Math.round(Math.max(groupW + K.gap, left + right + 2 * K.clear));
     const row = Math.max(groups.length - 1, 0) * pitch + groupW;
-    const top = s.top ? arrowsOf(s.top.down, s.top.up, false, false) : null;
-    const topReach = top ? (top.back ? K.lane : 0) + K.labelPad + Math.max(wide(top.down), wide(top.up)) + K.clear : 0;
-    const boxText = b => b ? Math.max(textPx(b.name, K.title, true), textPx(b.sub, K.sub)) + 2 * K.textPad : 0;
+    const top = s.top ? arrowsOf(s.top.down, s.top.up, false) : null;
+    const topReach = top ? (top.twoWay ? K.lane : 0) + K.labelPad + Math.max(labelPx(top.down), labelPx(top.up)) + K.clear : 0;
+    const boxText = b => b ? Math.max(boldPx(b.name, K.title), textPx(b.sub, K.sub)) + 2 * K.textPad : 0;
     const topW = s.top ? Math.round(Math.max(K.topMin, boxText(s.top))) : 0;
     const bandW = Math.round(Math.max(row, topW, 2 * topReach, boxText(s.hub), boxText(s.store)));
     const inset = (bandW - row) / 2;
     const bandX = Math.round(Math.max(K.edge, K.clear + left - groupW / 2 - inset));
-    const firstX = bandX + inset, lastCentre = firstX + row - groupW / 2;
-    return { groups, groupW, groupH: most(it => it.height, K.band), pitch, bandX, bandW, firstX, top, topW, mid: bandX + bandW / 2, width: Math.round(Math.max(bandX + bandW + K.edge, lastCentre + right + K.clear)) };
+    const firstX = bandX + inset, lastMiddle = firstX + row - groupW / 2;
+    return { groups, groupW, groupH: largest(placed => placed.height, K.band), pitch, bandX, bandW, firstX, top, topW, mid: bandX + bandW / 2, width: Math.round(Math.max(bandX + bandW + K.edge, lastMiddle + right + K.clear)) };
   }
   /* Draws what hubLayout placed. Every arrow is vertical, in its caller's color, its label on the outer side of it. A group reaches
      the store both ways, or reads only (dashed, store to group), or not at all (link: false). */
   function hubDiagram(s) {
     const K = HUB, L = hubLayout(s), svg = svgRoot(), hub = s.hub || {}, hubCol = color(hub.color || 'gray');
     const stroke = (x, from, to, c, dashed) => arrow(svg, `M${x},${from} L${x},${to}`, c, dashed);
-    // one arrow down from the upper box and, with `back`, one up again; a lone arrow sits on the center, its label to the right
-    const between = (x, upper, lower, cols, a) => {
-      const lane = a.back ? K.lane : 0, y = (upper + lower) / 2 + K.drop;
+    // one arrow down from the upper box and, with `twoWay`, one up again; a lone arrow sits on the center, its label to the right
+    const between = (x, upper, lower, cols, arrows) => {
+      const lane = arrows.twoWay ? K.lane : 0, y = (upper + lower) / 2 + K.baseline;
       stroke(x - lane, upper, lower, cols.down);
-      if (a.back) stroke(x + lane, lower, upper, cols.up);
-      if (a.down) text(svg, a.back ? x - lane - K.labelPad : x + K.labelPad, y, a.down, 'arrow halo', cols.down, a.back ? 'end' : 'start');
-      if (a.back && a.up) text(svg, x + lane + K.labelPad, y, a.up, 'arrow halo', cols.up, 'start');
+      if (arrows.twoWay) stroke(x + lane, lower, upper, cols.up);
+      if (arrows.down) text(svg, arrows.twoWay ? x - lane - K.labelPad : x + K.labelPad, y, arrows.down, 'arrow halo', cols.down, arrows.twoWay ? 'end' : 'start');
+      if (arrows.twoWay && arrows.up) text(svg, x + lane + K.labelPad, y, arrows.up, 'arrow halo', cols.up, 'start');
     };
     let y = K.edge;
     if (s.top) {
       const topCol = color(s.top.color || 'gray');
       box(svg, L.mid - L.topW / 2, y, L.topW, K.topH, s.top.name, s.top.sub, topCol);
-      between(L.mid, y + K.topH, y + K.topH + K.run, { down: topCol, up: hubCol }, L.top);
-      y += K.topH + K.run;
+      between(L.mid, y + K.topH, y + K.topH + K.arrowLen, { down: topCol, up: hubCol }, L.top);
+      y += K.topH + K.arrowLen;
     }
     box(svg, L.bandX, y, L.bandW, K.band, hub.name, hub.sub, hubCol);
-    const groupY = y + K.band + K.run, groupEnd = groupY + L.groupH, storeY = groupEnd + K.run, pillW = L.groupW - 2 * K.groupPad;
-    L.groups.forEach((it, i) => {
-      const g = it.group, x = L.firstX + i * L.pitch, cx = x + L.groupW / 2, c = color(g.color, i);
-      between(cx, y + K.band, groupY, { down: hubCol, up: c }, it.arrows);
+    const groupY = y + K.band + K.arrowLen, groupEnd = groupY + L.groupH, storeY = groupEnd + K.arrowLen, pillW = L.groupW - 2 * K.groupPad;
+    L.groups.forEach((placed, i) => {
+      const g = placed.group, x = L.firstX + i * L.pitch, cx = x + L.groupW / 2, c = color(g.color, i);
+      between(cx, y + K.band, groupY, { down: hubCol, up: c }, placed.arrows);
       const frame = tinted(sv('g'), c);
       frame.append(sv('rect', { x, y: groupY, width: L.groupW, height: L.groupH, rx: 6, fill: 'currentColor', 'fill-opacity': 0.14, stroke: 'currentColor', 'stroke-width': 2 }), sv('text', { x: cx, y: groupY + K.nameAt, 'text-anchor': 'middle', class: 'title' }, g.name));
       svg.append(frame);
       if (g.sub) text(svg, cx, groupY + K.subAt, g.sub, 'sub');
-      let pillY = groupY + (g.sub ? K.headSub : K.head);
-      it.members.forEach(m => { svg.append(sv('rect', { x: cx - pillW / 2, y: pillY, width: pillW, height: K.pill, rx: 5, class: 'member' })); text(svg, cx, pillY + K.pill / 2 + K.drop, m, 'sub'); pillY += K.pill + K.pillGap; });
+      let pillY = groupY + (g.sub ? K.headerSub : K.header);
+      placed.members.forEach(m => { svg.append(sv('rect', { x: cx - pillW / 2, y: pillY, width: pillW, height: K.pill, rx: 5, class: 'member' })); text(svg, cx, pillY + K.pill / 2 + K.baseline, m, 'sub'); pillY += K.pill + K.pillGap; });
       if (g.note) text(svg, cx, pillY + K.noteAt, g.note, 'note');
-      if (!it.arrows.linked) return;
+      if (!placed.arrows.linked) return;
       if (g.readOnly) stroke(cx, storeY, groupEnd, c, true); else { stroke(cx, groupEnd, storeY, c); stroke(cx, storeY, groupEnd, c); }
-      if (it.arrows.link) text(svg, cx + K.labelPad, groupEnd + K.run / 2 + K.drop, it.arrows.link, 'arrow halo', c, 'start');
+      if (placed.arrows.link) text(svg, cx + K.labelPad, groupEnd + K.arrowLen / 2 + K.baseline, placed.arrows.link, 'arrow halo', c, 'start');
     });
     if (s.store) box(svg, L.bandX, storeY, L.bandW, K.band, s.store.name, s.store.sub, color(s.store.color || 'brown'));
     fit(svg, L.width, 0, (s.store ? storeY + K.band : groupEnd) + K.edge); fixMarkers(svg);
