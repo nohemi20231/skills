@@ -50,7 +50,7 @@ Claude Code usually offers a new agent within seconds, without a restart. When t
 
 **Launch them by name**, the independent ones in a single message so they run in parallel. An agent starts with an empty context, so the brief is all it knows. Send what its phase lists (for a research role: the feature request in the user's words, the role and its points, and the matching lessons), as file paths rather than pasted contents. Leave your own conclusion out; an agent that is handed the expected answer tends to return it.
 
-**Check that nothing changed.** A tool list does not cover the fallback, and `qa-verifier` has a shell. So record these four lines before every launch (once for agents launched together) and again after the last report:
+**Check that nothing changed.** A tool list does not cover the fallback, and `qa-verifier` has a shell. So record these four lines before every launch (`gatekeeper` included; once for agents launched together) and again after the last report:
 
 ```
 git rev-parse --abbrev-ref HEAD
@@ -59,12 +59,13 @@ git diff HEAD --binary | git hash-object --stdin
 git status --porcelain
 ```
 
-Do not change files yourself while an agent runs. Then compare:
+Take the first record for `qa-verifier` after your own full test run, not before it, so that what the suite rewrites (a formatter, a lockfile, generated files) is already in the record. While an agent runs, do not change files and do not run installs, builds or tests yourself. Then compare:
 
-- The branch, the commit or the diff hash differs: a tracked file or the history changed while the agent ran. Stop, show the user what changed, and do not undo it yourself.
-- Only the status list differs: untracked files appeared, usually test output that `.gitignore` does not cover. Continue, and name them in the Phase 6 report.
+- All four are the same: continue.
+- Only the status list differs, and every changed line is a new `??` entry: untracked files appeared, usually test output that `.gitignore` does not cover. Continue, and name those lines in the Phase 6 report.
+- Anything else differs (the branch, the commit, the diff hash, or any other line of the status list): a tracked file, the index or the history changed while the agent ran. Stop, and show the user `git status --short`, `git diff HEAD --stat` and, when the commit moved, `git log --oneline` from the recorded commit to `HEAD`. Do not undo it yourself.
 
-The check does not see a push, or a change outside the repository.
+The check does not see a push, a change outside the repository, or a change to a file git does not track (ignored, or already untracked before the launch).
 
 **When the harness cannot run them** (it has no named agents, `.claude/agents/` cannot be written, or the session does not offer an agent you just created): read the definition, put its body (everything below the frontmatter) at the top of an ordinary subagent's prompt, and state the tool list in the brief. Where that subagent has no search tool of its own, allow it read-only shell commands for searching, and nothing that writes. Say in the Phase 6 report that the agents ran through the fallback: the tool limits were asked for, not enforced.
 
@@ -177,7 +178,7 @@ Launch the `qa-verifier` agent (see Agents), which has not seen the implementati
 5. The implementation matches the approved architecture diagram.
 6. The proposal's "Lessons used" list was followed.
 7. Tests use an injected clock, no sleeps and no test-only overloads; no value, call or step is copied three times. Every new or changed test follows the project's test-style rules (in `CLAUDE.md` or equivalent), when it has them.
-8. Red came first: every `feat`/`fix` commit is preceded by a `test` commit, and the new test fails when run at that `test` commit. Check at least three cycles by checking them out.
+8. Red came first: every `feat`/`fix` commit is preceded by a `test` commit, and the new test fails when run at that `test` commit. Check at least three cycles, each in a temporary copy of its `test` commit.
 
 The QA agent reports findings only; it does not fix them. A check that comes back not verified is not a pass: it goes in the Phase 6 report as still open.
 

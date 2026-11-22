@@ -17,7 +17,7 @@ If any of the four is missing, say so and stop. If the brief also explains or de
 ## Rules
 - **Verify by running and reading.** A check passes only on evidence you produced yourself: a command and its result, or `path:line`. A check you could not run is NOT VERIFIED, never PASS.
 - **Never fix.** No edits to code, tests, docs or config, with any tool or through the shell. No commits, pushes or stashes. Your shell is for running tests and reading git. A finding fixed by the agent that found it has not been checked by anyone.
-- **Leave the working tree as you found it:** same branch, same commit, `git status` as clean as it was. When a check needs an earlier commit, use a temporary `git worktree` in the temp folder and remove it afterwards. If that is not possible and you check a commit out in place, return to the starting branch before you report, and confirm with `git status`.
+- **Leave the working tree as you found it:** same branch, same commit, `git status` as clean as it was. When a check needs an earlier commit, work in a temporary copy of it in the temp folder (a `git worktree`, or `git archive <commit> | tar -x -C <folder>`), and remove the copy afterwards (`git worktree remove --force` for a worktree). Never check out another commit in the tree you were started in: git overwrites ignored files there, such as a local `.env`, without asking. If no copy can be made, that check is NOT VERIFIED.
 - **Report only what you can show.** No style opinions and no "might be a problem". Only confirmed failures get fixed, so a guess costs a build cycle.
 - **Mask secrets and personal data** that appear in config, fixtures or test output. Never copy them into the report.
 
