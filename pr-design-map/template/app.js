@@ -181,58 +181,92 @@
     return svg;
   }
 
-  /* a hub map: an actor on top, one wide hub band, groups that list their members, one wide store band. Every arrow is short and
-     straight, in its caller's colour. A group reaches the store both ways, or reads only (dashed, store to group), or not at all (link: false). */
-  function hubDiagram(s) {
-    const groups = s.groups || [], hub = s.hub || {}, top = s.top, store = s.store;
-    const pick = (own, shared) => own == null ? shared : own;
-    const len = t => String(t || '').length;
-    const GAP = 24, PH = 38, BAND = 84, RUN = 92;   // between groups, member pill height, band height, arrow run
-    // every group is as wide as the widest needs: its name, its note or sub, its longest member in a pill, or its two arrow labels side by side
-    const textWidth = g => Math.max(len(g.name) * 13.5 + 24, Math.max(len(g.note), len(g.sub)) * 8.6 + 20, ...(g.members || []).map(m => len(m) * 9 + 46));
-    const labelWidth = g => (len(pick(g.down, s.down)) + len(pick(g.up, s.up))) * 9.6 + 68 - GAP;
-    const GW = Math.round(Math.max(154, ...groups.map(g => Math.max(textWidth(g), labelWidth(g))))), PW = GW - 24;
-    const width = Math.max(groups.length, 1) * (GW + GAP) - GAP + 40, mid = width / 2;
-    const headOf = g => g.sub ? 70 : 48;
-    const GH = Math.max(BAND, ...groups.map(g => headOf(g) + (g.members || []).length * (PH + 8) + (g.note ? 30 : 0) + 12));
-    const svg = svgRoot(), hubCol = color(hub.color, 1);
-    const line = (x, from, to, col, dashed) => svg.append(sv('path', { d: `M${x},${from} L${x},${to}`, fill: 'none', stroke: col, 'stroke-width': 3, 'marker-end': markerFor(col), 'stroke-dasharray': dashed ? '8 6' : null }));
-    const text = (x, y, cls, str) => svg.append(sv('text', { x, y, 'text-anchor': 'middle', class: cls }, str));
-    let right = width;   // a label right of the last group's arrows may run past the bands: the viewBox grows to hold it
-    const side = (x, y, str) => { label(svg, x, y, str, null, 'start'); right = Math.max(right, x + String(str).length * 9.6 + 8); };
-    // down from the upper box, and back up when there is an answer; a lone arrow sits on the centre with its label to the right
-    const pair = (x, upper, lower, downCol, upCol, down, up) => {
-      const dx = up ? 14 : 0, ly = (upper + lower) / 2 + 6;
-      line(x - dx, upper, lower, downCol);
-      if (down && up) label(svg, x - dx - 12, ly, down, null, 'end'); else if (down) side(x + 12, ly, down);
-      if (up) { line(x + dx, lower, upper, upCol); side(x + dx + 12, ly, up); }
-    };
-    let y = 20;
-    if (top) {
-      const topCol = color(top.color || 'gray');
-      const TW = Math.max(210, len(top.name) * 13.5 + 30);
-      box(svg, mid - TW / 2, y, TW, 70, top.name, top.sub, topCol);
-      pair(mid, y + 70, y + 70 + RUN, topCol, hubCol, top.down, top.up);
-      y += 70 + RUN;
-    }
-    box(svg, 20, y, width - 40, BAND, hub.name, hub.sub, hubCol);
-    const gy = y + BAND + RUN, sy = gy + GH + RUN;
-    groups.forEach((g, i) => {
-      const x = 20 + i * (GW + GAP), cx = x + GW / 2, col = color(g.color, i);
-      pair(cx, y + BAND, gy, hubCol, col, pick(g.down, s.down), pick(g.up, s.up));
-      svg.append(sv('rect', { x, y: gy, width: GW, height: GH, rx: 12, class: 'box', stroke: col }));
-      text(cx, gy + 34, 'title', g.name);
-      if (g.sub) text(cx, gy + 58, 'sub', g.sub);
-      let my = gy + headOf(g);
-      (g.members || []).forEach(m => { svg.append(sv('rect', { x: cx - PW / 2, y: my, width: PW, height: PH, rx: 8, class: 'member' })); text(cx, my + PH / 2 + 6, 'sub', m); my += PH + 8; });
-      if (g.note) text(cx, my + 18, 'sub', g.note);
-      const link = pick(g.link, store && store.link);
-      if (!store || link === false) return;
-      if (g.readOnly) line(cx, sy, gy + GH, col, true); else { line(cx, gy + GH, sy, col); line(cx, sy, gy + GH, col); }
-      if (link) side(cx + 12, gy + GH + RUN / 2 + 6, link);
+  /* ---------- hub map: an actor on top, one wide hub band, groups that list their members, one wide store band ---------- */
+  const HUB = {
+    title: 22, sub: 16, label: 17,                       // font sizes of .title, .sub and .arrow in style.css
+    edge: 20, clear: 8, gap: 24,                         // margin around the drawing; free space beside a label; least space between groups
+    lane: 14, labelPad: 12, run: 92, dash: '8 6',        // an arrow's offset from the group's centre; arrow to its label; arrow length
+    band: 84, topH: 70, topMin: 210, textPad: 24,        // hub and store bands; the top actor's box; room beside a box's text
+    groupMin: 154, groupPad: 12, head: 48, headSub: 70,  // group box; its header without and with a sub line
+    nameAt: 34, subAt: 58, noteAt: 18, noteH: 30,        // baselines of the group's name and sub; of the note under the last pill; the note's height
+    pill: 38, pillGap: 8, pillPad: 11, drop: 6,          // member pill; a text's baseline below the middle of its row
+  };
+  const labelOf = v => typeof v === 'string' ? v.trim() : '';   // a label or caption is a string; true, false and nothing draw no text
+  /* px width of a text, estimated per character (M, W, m, w widest, other capitals wide; i, l, t and punctuation narrow), because the fonts
+     load after the page is drawn, so nothing can be measured here */
+  const textPx = (str, size, bold) => {
+    let em = 0;
+    for (const ch of labelOf(str)) em += /[MWmw@%]/.test(ch) ? 0.9 : /[A-Z_&#]/.test(ch) ? 0.72 : /[iljtfr.,:;'|!()[\]{}\/ -]/.test(ch) ? 0.36 : 0.6;
+    return em * size * (bold ? 1.05 : 1);
+  };
+  /* Where everything in a hub map goes: sizes in, positions out, nothing drawn. A group's labels sit left and right of its arrows, so
+     two neighbours stand at least the widest right-hand label plus the widest left-hand one apart; the bands are at least as wide as
+     the hub's, the store's and the top actor's own text and labels, with the row of groups centred under them. */
+  function hubLayout(s) {
+    const K = HUB, ownOr = (own, shared) => own == null ? shared : own, wide = t => textPx(t, K.label, true);
+    const arrowsOf = (down, up, link, hasStore) => ({ down: labelOf(down), up: labelOf(up), back: up != null && up !== false, link: labelOf(link), linked: hasStore && link !== false });
+    const groups = (s.groups || []).map(group => {
+      const a = arrowsOf(ownOr(group.down, s.down), ownOr(group.up, s.up), ownOr(group.link, s.store && s.store.link), !!s.store), members = group.members || [];
+      return {
+        group, members, arrows: a,
+        left: a.back ? K.lane + (a.down ? K.labelPad + wide(a.down) : 0) : 0,
+        right: Math.max(a.back ? K.lane + (a.up ? K.labelPad + wide(a.up) : 0) : (a.down ? K.labelPad + wide(a.down) : 0), a.linked && a.link ? K.labelPad + wide(a.link) : 0),
+        text: Math.max(textPx(group.name, K.title, true), textPx(group.note, K.sub), textPx(group.sub, K.sub), ...members.map(m => textPx(m, K.sub) + 2 * K.pillPad)) + 2 * K.groupPad,
+        height: (group.sub ? K.headSub : K.head) + members.length * (K.pill + K.pillGap) + (group.note ? K.noteH : 0) + K.groupPad,
+      };
     });
-    if (store) box(svg, 20, sy, width - 40, BAND, store.name, store.sub, color(store.color || 'brown'));
-    fit(svg, right, 0, (store ? sy + BAND : gy + GH) + 20);
+    const most = (of, least) => Math.max(least, ...groups.map(of));
+    const groupW = Math.round(most(it => it.text, K.groupMin)), left = most(it => it.left, 0), right = most(it => it.right, 0);
+    const pitch = Math.round(Math.max(groupW + K.gap, left + right + 2 * K.clear));
+    const row = Math.max(groups.length - 1, 0) * pitch + groupW;
+    const top = s.top ? arrowsOf(s.top.down, s.top.up, false, false) : null;
+    const topReach = top ? (top.back ? K.lane : 0) + K.labelPad + Math.max(wide(top.down), wide(top.up)) + K.clear : 0;
+    const boxText = b => b ? Math.max(textPx(b.name, K.title, true), textPx(b.sub, K.sub)) + 2 * K.textPad : 0;
+    const topW = s.top ? Math.round(Math.max(K.topMin, boxText(s.top))) : 0;
+    const bandW = Math.round(Math.max(row, topW, 2 * topReach, boxText(s.hub), boxText(s.store)));
+    const inset = (bandW - row) / 2;
+    const bandX = Math.round(Math.max(K.edge, K.clear + left - groupW / 2 - inset));
+    const firstX = bandX + inset, lastCentre = firstX + row - groupW / 2;
+    return { groups, groupW, groupH: most(it => it.height, K.band), pitch, bandX, bandW, firstX, top, topW, mid: bandX + bandW / 2, width: Math.round(Math.max(bandX + bandW + K.edge, lastCentre + right + K.clear)) };
+  }
+  /* Draws what hubLayout placed. Every arrow is vertical, in its caller's colour, its label on the outer side of it. A group reaches
+     the store both ways, or reads only (dashed, store to group), or not at all (link: false). */
+  function hubDiagram(s) {
+    const K = HUB, L = hubLayout(s), svg = svgRoot(), hub = s.hub || {}, hubCol = color(hub.color || 'gray');
+    const stroke = (x, from, to, col, dash) => svg.append(sv('path', { d: `M${x},${from} L${x},${to}`, fill: 'none', stroke: col, 'stroke-width': 3, 'marker-end': markerFor(col), 'stroke-dasharray': dash }));
+    const centred = (x, y, cls, str) => svg.append(sv('text', { x, y, 'text-anchor': 'middle', class: cls }, str));
+    // one arrow down from the upper box and, with `back`, one up again; a lone arrow sits on the centre, its label to the right
+    const between = (x, upper, lower, cols, a) => {
+      const lane = a.back ? K.lane : 0, y = (upper + lower) / 2 + K.drop;
+      stroke(x - lane, upper, lower, cols.down);
+      if (a.back) stroke(x + lane, lower, upper, cols.up);
+      if (a.down) label(svg, a.back ? x - lane - K.labelPad : x + K.labelPad, y, a.down, null, a.back ? 'end' : 'start');
+      if (a.back && a.up) label(svg, x + lane + K.labelPad, y, a.up, null, 'start');
+    };
+    let y = K.edge;
+    if (s.top) {
+      const topCol = color(s.top.color || 'gray');
+      box(svg, L.mid - L.topW / 2, y, L.topW, K.topH, s.top.name, s.top.sub, topCol);
+      between(L.mid, y + K.topH, y + K.topH + K.run, { down: topCol, up: hubCol }, L.top);
+      y += K.topH + K.run;
+    }
+    box(svg, L.bandX, y, L.bandW, K.band, hub.name, hub.sub, hubCol);
+    const groupY = y + K.band + K.run, groupEnd = groupY + L.groupH, storeY = groupEnd + K.run, pillW = L.groupW - 2 * K.groupPad;
+    L.groups.forEach((it, i) => {
+      const g = it.group, x = L.firstX + i * L.pitch, cx = x + L.groupW / 2, col = color(g.color, i);
+      between(cx, y + K.band, groupY, { down: hubCol, up: col }, it.arrows);
+      svg.append(sv('rect', { x, y: groupY, width: L.groupW, height: L.groupH, rx: 12, class: 'box', stroke: col }));
+      centred(cx, groupY + K.nameAt, 'title', g.name);
+      if (g.sub) centred(cx, groupY + K.subAt, 'sub', g.sub);
+      let pillY = groupY + (g.sub ? K.headSub : K.head);
+      it.members.forEach(m => { svg.append(sv('rect', { x: cx - pillW / 2, y: pillY, width: pillW, height: K.pill, rx: 8, class: 'member' })); centred(cx, pillY + K.pill / 2 + K.drop, 'sub', m); pillY += K.pill + K.pillGap; });
+      if (g.note) centred(cx, pillY + K.noteAt, 'sub', g.note);
+      if (!it.arrows.linked) return;
+      if (g.readOnly) stroke(cx, storeY, groupEnd, col, K.dash); else { stroke(cx, groupEnd, storeY, col); stroke(cx, storeY, groupEnd, col); }
+      if (it.arrows.link) label(svg, cx + K.labelPad, groupEnd + K.run / 2 + K.drop, it.arrows.link, null, 'start');
+    });
+    if (s.store) box(svg, L.bandX, storeY, L.bandW, K.band, s.store.name, s.store.sub, color(s.store.color || 'brown'));
+    fit(svg, L.width, 0, (s.store ? storeY + K.band : groupEnd) + K.edge);
     return svg;
   }
 
@@ -286,13 +320,14 @@
     btn.onclick = () => { const now = fold.classList.toggle('open'); btn.setAttribute('aria-expanded', String(now)); act.textContent = now ? 'Hide ▴' : 'Show ▾'; };
     return fold;
   }
-  /* a diagram sits in a "Diagram" fold tile, open at first. The figure scrolls sideways at a readable size; a "Swipe sideways" line shows while it overflows */
-  /* a diagram in its fold tile; the section's caption, when it has one, sits under the figure and folds with it */
+  /* a diagram sits in a "Diagram" fold tile, open at first. The figure scrolls sideways at a readable size; a "Swipe sideways" line shows while it overflows.
+     The section's caption, when it has one, sits under the figure and folds with it */
   const fig = (svg, caption) => {
     const f = h('figure', {}, svg), hint = h('p', { class: 'swipe' }, 'Swipe sideways to see all of it ⇆');
     const fits = () => f.classList.toggle('overflows', f.scrollWidth > f.clientWidth + 1);
     if (window.ResizeObserver) new ResizeObserver(fits).observe(f); else requestAnimationFrame(fits);
-    return foldTile('Diagram', 'diagram', [f, hint, caption ? h('div', { class: 'caption' }, h('p', {}, caption)) : null]);
+    const words = labelOf(caption);
+    return foldTile('Diagram', 'diagram', [f, hint, words ? h('div', { class: 'caption' }, h('p', {}, words)) : null]);
   };
   /* "What changed": the map's short summary (a few bullets) in a fold tile under the PR facts, open at first; nothing when the map has none */
   function brief() {
