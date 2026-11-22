@@ -181,6 +181,61 @@
     return svg;
   }
 
+  /* a hub map: an actor on top, one wide hub band, groups that list their members, one wide store band. Every arrow is short and
+     straight, in its caller's colour. A group reaches the store both ways, or reads only (dashed, store to group), or not at all (link: false). */
+  function hubDiagram(s) {
+    const groups = s.groups || [], hub = s.hub || {}, top = s.top, store = s.store;
+    const pick = (own, shared) => own == null ? shared : own;
+    const len = t => String(t || '').length;
+    const GAP = 24, PH = 38, BAND = 84, RUN = 92;   // between groups, member pill height, band height, arrow run
+    // every group is as wide as the widest needs: its name, its note or sub, its longest member in a pill, or its two arrow labels side by side
+    const textWidth = g => Math.max(len(g.name) * 13.5 + 24, Math.max(len(g.note), len(g.sub)) * 8.6 + 20, ...(g.members || []).map(m => len(m) * 9 + 46));
+    const labelWidth = g => (len(pick(g.down, s.down)) + len(pick(g.up, s.up))) * 9.6 + 68 - GAP;
+    const GW = Math.round(Math.max(154, ...groups.map(g => Math.max(textWidth(g), labelWidth(g))))), PW = GW - 24;
+    const width = Math.max(groups.length, 1) * (GW + GAP) - GAP + 40, mid = width / 2;
+    const headOf = g => g.sub ? 70 : 48;
+    const GH = Math.max(BAND, ...groups.map(g => headOf(g) + (g.members || []).length * (PH + 8) + (g.note ? 30 : 0) + 12));
+    const svg = svgRoot(), hubCol = color(hub.color, 1);
+    const line = (x, from, to, col, dashed) => svg.append(sv('path', { d: `M${x},${from} L${x},${to}`, fill: 'none', stroke: col, 'stroke-width': 3, 'marker-end': markerFor(col), 'stroke-dasharray': dashed ? '8 6' : null }));
+    const text = (x, y, cls, str) => svg.append(sv('text', { x, y, 'text-anchor': 'middle', class: cls }, str));
+    let right = width;   // a label right of the last group's arrows may run past the bands: the viewBox grows to hold it
+    const side = (x, y, str) => { label(svg, x, y, str, null, 'start'); right = Math.max(right, x + String(str).length * 9.6 + 8); };
+    // down from the upper box, and back up when there is an answer; a lone arrow sits on the centre with its label to the right
+    const pair = (x, upper, lower, downCol, upCol, down, up) => {
+      const dx = up ? 14 : 0, ly = (upper + lower) / 2 + 6;
+      line(x - dx, upper, lower, downCol);
+      if (down && up) label(svg, x - dx - 12, ly, down, null, 'end'); else if (down) side(x + 12, ly, down);
+      if (up) { line(x + dx, lower, upper, upCol); side(x + dx + 12, ly, up); }
+    };
+    let y = 20;
+    if (top) {
+      const topCol = color(top.color || 'gray');
+      const TW = Math.max(210, len(top.name) * 13.5 + 30);
+      box(svg, mid - TW / 2, y, TW, 70, top.name, top.sub, topCol);
+      pair(mid, y + 70, y + 70 + RUN, topCol, hubCol, top.down, top.up);
+      y += 70 + RUN;
+    }
+    box(svg, 20, y, width - 40, BAND, hub.name, hub.sub, hubCol);
+    const gy = y + BAND + RUN, sy = gy + GH + RUN;
+    groups.forEach((g, i) => {
+      const x = 20 + i * (GW + GAP), cx = x + GW / 2, col = color(g.color, i);
+      pair(cx, y + BAND, gy, hubCol, col, pick(g.down, s.down), pick(g.up, s.up));
+      svg.append(sv('rect', { x, y: gy, width: GW, height: GH, rx: 12, class: 'box', stroke: col }));
+      text(cx, gy + 34, 'title', g.name);
+      if (g.sub) text(cx, gy + 58, 'sub', g.sub);
+      let my = gy + headOf(g);
+      (g.members || []).forEach(m => { svg.append(sv('rect', { x: cx - PW / 2, y: my, width: PW, height: PH, rx: 8, class: 'member' })); text(cx, my + PH / 2 + 6, 'sub', m); my += PH + 8; });
+      if (g.note) text(cx, my + 18, 'sub', g.note);
+      const link = pick(g.link, store && store.link);
+      if (!store || link === false) return;
+      if (g.readOnly) line(cx, sy, gy + GH, col, true); else { line(cx, gy + GH, sy, col); line(cx, sy, gy + GH, col); }
+      if (link) side(cx + 12, gy + GH + RUN / 2 + 6, link);
+    });
+    if (store) box(svg, 20, sy, width - 40, BAND, store.name, store.sub, color(store.color || 'brown'));
+    fit(svg, right, 0, (store ? sy + BAND : gy + GH) + 20);
+    return svg;
+  }
+
   function sequenceDiagram(s) {
     const actors = s.actors || [], steps = s.steps || [];
     const LW = 210, GAP = 60, TOP = 110, STEP = 96;
@@ -232,11 +287,12 @@
     return fold;
   }
   /* a diagram sits in a "Diagram" fold tile, open at first. The figure scrolls sideways at a readable size; a "Swipe sideways" line shows while it overflows */
-  const fig = svg => {
+  /* a diagram in its fold tile; the section's caption, when it has one, sits under the figure and folds with it */
+  const fig = (svg, caption) => {
     const f = h('figure', {}, svg), hint = h('p', { class: 'swipe' }, 'Swipe sideways to see all of it ⇆');
     const fits = () => f.classList.toggle('overflows', f.scrollWidth > f.clientWidth + 1);
     if (window.ResizeObserver) new ResizeObserver(fits).observe(f); else requestAnimationFrame(fits);
-    return foldTile('Diagram', 'diagram', [f, hint]);
+    return foldTile('Diagram', 'diagram', [f, hint, caption ? h('div', { class: 'caption' }, h('p', {}, caption)) : null]);
   };
   /* "What changed": the map's short summary (a few bullets) in a fold tile under the PR facts, open at first; nothing when the map has none */
   function brief() {
@@ -343,15 +399,16 @@
     return out;
   }
   const RENDER = {
-    sequence: s => [fig(sequenceDiagram(s)), s.table ? table(s.table) : null],
+    sequence: s => [fig(sequenceDiagram(s), s.caption), s.table ? table(s.table) : null],
     json: s => h('div', { class: 'tiles' + (s.stack ? ' stack' : '') }, (s.items || []).map((it, i) => tile({ title: it.title, json: it.value, unknown: it.unknown, lines: it.lines, color: it.color }, i))),
-    modules: s => [fig(boxesDiagram(M.modules || [], s.edges)), s.table ? table(s.table) : null, h('h3', {}, 'New and modified in this PR'), filesGrid()],
-    tree: s => fig(treeDiagram(s.roots || [])),
+    modules: s => [fig(boxesDiagram(M.modules || [], s.edges), s.caption), s.table ? table(s.table) : null, h('h3', {}, 'New and modified in this PR'), filesGrid()],
+    hub: s => [fig(hubDiagram(s), s.caption), s.table ? table(s.table) : null],
+    tree: s => fig(treeDiagram(s.roots || []), s.caption),
     table: s => table(s),
     tiles: s => h('div', { class: 'tiles' + (s.stack ? ' stack' : '') }, (s.items || []).map(tile)),
     code: s => codeBlock(s.code, s.edge),
     'file-tiles': () => groupedFileTiles(),
-    lifecycle: s => { const states = (s.states || []).map((st, i) => typeof st === 'string' ? { name: st, color: CYCLE[i % CYCLE.length] } : st); return fig(boxesDiagram(states, s.transitions)); },
+    lifecycle: s => { const states = (s.states || []).map((st, i) => typeof st === 'string' ? { name: st, color: CYCLE[i % CYCLE.length] } : st); return fig(boxesDiagram(states, s.transitions), s.caption); },
     proposal: s => [
       h('h3', {}, 'CURRENT'), h('div', { class: 'tiles stack' }, tile({ ...s.current, color: s.current.color || 'gray' }, 0)),
       ...(s.options || []).map((o, i) => [h('h3', {}, `MODIFIED · ${o.title}`), h('div', { class: 'tiles stack' }, tile({ ...o, title: o.title }, i + 1))]).flat(),

@@ -5,7 +5,7 @@ description: Use whenever a pull request is opened or updated, or someone asks f
 
 # PR design map (visual only)
 
-For every PR, one page that shows the design as the code stands on the PR's branch. Visuals and code only: no explanatory paragraphs, no figure captions. Big, well-spaced fonts, no white glare, diagrams and tiles instead of prose, one consistent color per kind of thing.
+For every PR, one page that shows the design as the code stands on the PR's branch. Visuals and code first: no explanatory paragraphs; the only prose is one short caption under each diagram. Big, well-spaced fonts, no white glare, diagrams and tiles instead of prose, one consistent color per kind of thing.
 
 The page is a fixed template plus data. You write **map.json** only. Git writes **files.json**. The template renders both.
 
@@ -36,7 +36,7 @@ Both templates render the same map.json. The default is `template/`; `"template"
 
 3. **Read only what the rewritten sections need.** The diff, the files in it, and their direct importers and callees found by grep. Not whole modules. `wc -l` first; a file over 400 lines in parts; never generated, vendored or minified files. Design docs only when they name a file in the diff.
 
-4. **Write map.json** per `reference/map-schema.md`. A `summary` of what the PR changes: three to six bullets, one short line each, from the diff (rewrite it whenever the diff changes). Short labels, two to five word `change` notes, code one statement per line with a short comment above each part. Every path in `notes` and `files` must appear in `files.json`. Note the session URL (and name, if known) in `session`; never invent a name. Set `updated` to the publish time in the reader's zone, e.g. `31 Oct 2026 · 1:30 PM CT`.
+4. **Write map.json** per `reference/map-schema.md`. A `summary` of what the PR changes: three to six bullets, one short line each, from the diff (rewrite it whenever the diff changes). A `caption` on every diagram section (sequence, modules, hub, tree, lifecycle): one or two sentences, 30 words at most. The first states what the picture shows as a claim the reader can check against it ("No agent talks to another agent"), not a description of its shapes; the second, if needed, names the one exception or the thing that is not drawn. Use the diagram's own names and nothing the diagram or the code does not show; `build.sh` reports a missing or longer caption. Short labels, two to five word `change` notes, code one statement per line with a short comment above each part. Every path in `notes` and `files` must appear in `files.json`. Note the session URL (and name, if known) in `session`; never invent a name. Set `updated` to the publish time in the reader's zone, e.g. `31 Oct 2026 · 1:30 PM CT`.
 
 5. **Build and check.**
 
