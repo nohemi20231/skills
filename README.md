@@ -24,6 +24,8 @@ fakeTestAll/                     sample screenshots of both pr-design-map design
 
 Any top-level folder with a `SKILL.md` is a skill. Add a skill by adding a folder next to the existing ones, with a `plugin.json` and an entry in `.github/plugin/marketplace.json` (see [GitHub Copilot CLI plugins](#github-copilot-cli-plugins)); the tests fail until both are there.
 
+A skill that launches subagents keeps their definitions in `<skill>/agents/<name>.agent.md`: a `name`, a `description` and a `tools` list in the frontmatter, the agent's prompt below it. Claude Code and the Copilot CLI load a project's agents from its `.claude/agents/`, and a synced or linked skill folder is not on that path. So when the skill runs, it copies the definitions the session does not already offer into the project's `.claude/agents/` (see "Agents" in its `SKILL.md`). Edit the definitions here, never the copies.
+
 Only skills I wrote live here. Third-party skills I use are listed, with author, source and license, in [`THIRD_PARTY_SKILLS.md`](THIRD_PARTY_SKILLS.md).
 
 ## How app repos get these skills
@@ -117,6 +119,7 @@ copilot plugin marketplace remove skills --force
 
 - **One plugin per skill.** `<skill>/plugin.json` makes the skill folder a plugin whose only skill is its own `SKILL.md`, and `.github/plugin/marketplace.json` lists that folder as the plugin's `source`. No skill file is moved or copied.
 - **Keep the manifest in the legacy format.** The CLI loads a plugin's root `SKILL.md` only for a legacy manifest: no `$schema` line, no `skills` path, and no `skills/` directory in the folder. The Agent Plugins format reads skills from `skills/<name>/SKILL.md` only, and that is the one location documented for the other Copilot surfaces (VS Code, the Copilot app), so these plugins are for the CLI.
+- **Agents.** `agents/` is the CLI's default agent path for a plugin and it reads `*.agent.md` there, so by the CLI's plugin reference an installed plugin offers the skill's agents without project copies. This has not been tried with the CLI yet; if the session does not offer them, the skill creates the project copies as usual.
 - **Next to the sync.** The sync copies `plugin.json` into app repos with the rest of the skill folder. In a repo that has the synced copy, Copilot uses that copy and ignores the plugin's.
 - **Checked on every PR.** `ci/check-copilot-plugins.sh` fails when a skill has no manifest, names or descriptions disagree, or the marketplace lists something that is not a skill.
 - **`pr-design-map` in Copilot** builds the page (`out/index.html`); publishing it as an artifact is a Claude step.
