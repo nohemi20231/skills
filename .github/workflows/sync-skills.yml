@@ -2,8 +2,8 @@ name: Sync skills
 
 # Copies skills into every repo in sync/targets.yml and opens (or updates) one
 # pull request per repo and branch. Needs a GitHub App installed on the target
-# repos, with its ID in the SKILLS_SYNC_APP_ID variable and its private key in
-# the SKILLS_SYNC_PRIVATE_KEY secret. See README.md.
+# repos, with its client ID in the SKILLS_SYNC_CLIENT_ID variable and its
+# private key in the SKILLS_SYNC_PRIVATE_KEY secret. See README.md.
 
 on:
   push:
@@ -28,7 +28,7 @@ jobs:
       matrix: ${{ steps.matrix.outputs.matrix }}
       count: ${{ steps.matrix.outputs.count }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - id: matrix
         name: Read sync/targets.yml
@@ -65,18 +65,18 @@ jobs:
           fi
 
       - id: token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ vars.SKILLS_SYNC_APP_ID }}
+          client-id: ${{ vars.SKILLS_SYNC_CLIENT_ID }}
           private-key: ${{ secrets.SKILLS_SYNC_PRIVATE_KEY }}
           owner: ${{ steps.names.outputs.owner }}
           repositories: ${{ steps.names.outputs.repo }}
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: source
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: ${{ matrix.target.repo }}
           ref: ${{ matrix.target.branch }}
@@ -90,7 +90,7 @@ jobs:
         run: bash source/sync/scripts/sync-skills.sh source target "$SKILLS"
 
       - name: Open or update pull request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ steps.token.outputs.token }}
           path: target
