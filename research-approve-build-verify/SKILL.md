@@ -7,13 +7,13 @@ description: Use when adding a feature to an existing app or service: parallel r
 
 A workflow for adding a feature to a codebase that already works and must keep working. No single agent both builds and grades the work, and no code is written until the user approves the design.
 
-Skip this workflow for one-line fixes, config tweaks or small isolated changes; use a single agent with TDD instead. Use it when the feature touches several files, modules or services. Docs-only PRs skip the workflow but not the check: before merge, one fresh-context agent compares every claim in the docs with the code, and the author never merges its own unchecked docs PR.
+Skip this workflow for one-line fixes, config tweaks or small isolated changes; use a single agent with TDD instead. Use it when the feature touches several files, modules or services. Docs-only PRs skip the workflow but not the check: before merge, one fresh `read-only-analyst` (see Agents) compares every claim in the docs with the code, and the author never merges its own unchecked docs PR.
 
 Prefer small slices. When a proposal touches several modules or would add thousands of lines, propose splitting it into PRs that each deliver one behavior.
 
 ## Phase 0: Sync (two minutes, every session)
 
-Before any research: `git fetch`, list open PRs (`gh pr list`, or the GitHub tool when the `gh` CLI is not installed), `git log --oneline main..HEAD`, and read the resume line in `docs/architecture/STATE.md`. If that file does not exist, say so in the first message and treat the branch and PR list as the whole state; do not create the file unless the user asks. When another Claude session may be working on the same repo, check which branches it owns and agree that only one session merges to main. A slice, a refactor PR and a design map all start from this known state; skipping it cost the 2026-10-30 session several rounds of "was it pushed, was it approved".
+Before any research: `git fetch`, list open PRs (`gh pr list`, or the GitHub tool when the `gh` CLI is not installed), `git log --oneline main..HEAD`, and read the resume line in `docs/architecture/STATE.md`. If that file does not exist, say so in the first message and treat the branch and PR list as the whole state; do not create the file unless the user asks. Create the workflow's agents when the session does not offer them (see Agents). When another Claude session may be working on the same repo, check which branches it owns and agree that only one session merges to main. A slice, a refactor PR and a design map all start from this known state; skipping it cost the 2026-10-30 session several rounds of "was it pushed, was it approved".
 
 ## Approval mode
 
@@ -29,11 +29,28 @@ The SC ids come from the `design-rulebook` skill. When it is installed, its text
 - **SC-7 Ask-list.** Ask the user only about money (a new paid service, or more than $5/month added), anything hard to undo (deleting data, registrations, external accounts), a request that would exceed twice the slice cap, or behaviour that notifies the user more often or changes what happens to their data.
 - **SC-9 Size.** Each PR reports production, test and doc lines and open items. Flag docs growing faster than code, or open items rising three PRs in a row.
 
+## Agents
+
+Every subagent this workflow launches is one of two agent definitions, kept next to this file in `agents/`. A definition lets the harness enforce what a prompt can only ask for: the tool list.
+
+| Agent | Tools | Launched for |
+|---|---|---|
+| `read-only-analyst` | Read, Grep, Glob | the three research roles (Phase 1), the scope check when there is no `gatekeeper` (Phase 2), the docs-only check |
+| `qa-verifier` | Read, Grep, Glob, Bash | independent QA (Phase 4): runs suites and reads git; no editing tools, and its rules forbid writing through the shell |
+
+**Create them before the first launch** (in Phase 0, when the workflow runs). For each agent the session does not already offer, copy `agents/<name>.agent.md` to `.claude/agents/<name>.md` in the project, unchanged. Write the copy with the file tool, not a shell `cp`: a sandboxed shell is denied that folder. Claude Code and the Copilot CLI both read that folder, and Claude Code loads a new file within seconds, without a restart. Name the files you created in the first message, and commit them alone, as the slice's first commit: `chore(agents): add research-approve-build-verify agents`. They are tooling and do not count toward the slice cap (SC-4). Never overwrite a file that is already there: when the project's copy differs from the one here, say so in the first message, keep using the project's copy, and replace it only when the user says so.
+
+**Launch them by name**, the independent ones in a single message so they run in parallel. An agent starts with an empty context, so the brief is all it knows: the feature request in the user's words, its role and the points listed for that role in this file, the matching lessons, and file paths rather than pasted contents. Leave your own conclusion out of the brief; an agent that is handed the expected answer tends to return it.
+
+**When the harness cannot run them** (it has no named agents, or `.claude/agents/` cannot be written): read the definition, put its body (everything below the frontmatter) at the top of an ordinary subagent's prompt, and state the tool list in the brief. Say in the Phase 6 report that the tool limits were asked for, not enforced.
+
+**To change or add an agent**, edit the files in `agents/` next to this file, in the repo this skill comes from, never a project's copy. A definition holds what stays the same from slice to slice: the job, the tool list, the rules and the shape of the report. Checklists stay in this file and travel in the brief, so a project's copy does not go stale when a checklist changes. The frontmatter has three fields: `name` (the file name without `.agent.md`), `description` (when to launch it and what it never does) and `tools` (the shortest list that does the job; leaving the line out grants every tool). It sets no `model`, so the agent runs on the session's model on either harness.
+
 ## Phase 1: Parallel read-only research
 
 First recall lessons: if the project keeps a file of lessons from earlier PRs (for example the kept lessons of an `agent-grade-and-learn` store, when that skill is installed), search it for the feature's domain words and the modules it touches, and give the matching lessons to every subagent below. If there is no lessons file, write "Lessons used: none kept for this project" in the proposal and continue.
 
-Before editing anything, launch three subagents in parallel. They are read-only: they must not create, edit or delete files. Give each the feature request and ask for a concise written report with file paths and line references.
+Before editing anything, launch three `read-only-analyst` agents in parallel (see Agents), one per role below. They are read-only: they must not create, edit or delete files. Give each the feature request, its role and the points under it, and ask for a concise written report with file paths and line references.
 
 1. **Integration mapper**: Where does this feature plug in?
    - Affected services, modules, packages and entry points (controllers, handlers, commands, jobs)
@@ -106,7 +123,7 @@ Parked: automatic refund (docs/parked.md)
 - none (technical default: no automatic refund in this slice)
 ```
 
-Before showing it, run the `gatekeeper` (Job 4, scope check) on the proposal file and apply its cuts. When that agent is not installed, give the proposal file and the Scope rules above to a fresh-context, read-only subagent, ask it which items to cut or park and why, and apply its cuts. Then stop for approval as the Approval mode says. Do not write or modify any code before the proposal is approved, by the user or by the approved slice list when it carries no ask-list item. If the user requests changes, revise the proposal and wait again.
+Before showing it, run the `gatekeeper` (Job 4, scope check) on the proposal file and apply its cuts. When that agent is not installed, give the proposal file and the Scope rules above to a fresh `read-only-analyst`, ask it which items to cut or park and why, and apply its cuts. Then stop for approval as the Approval mode says. Do not write or modify any code before the proposal is approved, by the user or by the approved slice list when it carries no ask-list item. If the user requests changes, revise the proposal and wait again.
 
 ## Phase 3: Implement with TDD
 
@@ -127,7 +144,7 @@ Stay within the approved design. If implementation reveals the design will not w
 
 ## Phase 4: Independent QA with fresh context
 
-Launch a QA subagent that has not seen the implementation reasoning. Give it only the feature request, the approved design, and the diff. Ask it to verify and report pass/fail with evidence for each:
+Launch the `qa-verifier` agent (see Agents), which has not seen the implementation reasoning. Give it only the feature request, the approved design, the diff and the checks below. Ask it to verify and report pass/fail with evidence for each:
 
 1. Existing behavior still works (regression): run the existing test suites for affected modules and services.
 2. The new feature path is covered by tests that actually exercise it.
