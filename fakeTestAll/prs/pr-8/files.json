@@ -1,0 +1,158 @@
+{
+  "pr": {
+    "number": 8,
+    "url": "https://github.com/example/corner-bakery/pull/8",
+    "owner": "example",
+    "repo": "corner-bakery",
+    "branch": "feature/refund-on-cancel",
+    "head": "a28cded7560244610cbdda5d4490a8427d3d8311",
+    "base": "main",
+    "date": "2026-11-17"
+  },
+  "files": [
+    {
+      "path": "docs/orders.md",
+      "status": "modified",
+      "added": 6,
+      "removed": 1,
+      "lines": 15,
+      "anchor": "e62f20e7324d81a338cb1cde7c3d4dd10aaf207fd726ea6b3500f89e6fddb718"
+    },
+    {
+      "path": "pom.xml",
+      "status": "modified",
+      "added": 1,
+      "removed": 1,
+      "lines": 9,
+      "anchor": "9c5fb3d1b7e3b0f54bc5c4182965c4fe1f9023d449017cece3005d3f90e8e4d8"
+    },
+    {
+      "path": "src/main/java/bakery/orders/Order.java",
+      "status": "modified",
+      "added": 6,
+      "removed": 5,
+      "lines": 25,
+      "anchor": "d2d8e36f50dfe9d96fe33e97e8472c82ebc62de32046fe727f80d8e4b9eb9954"
+    },
+    {
+      "path": "src/main/java/bakery/orders/OrderService.java",
+      "status": "modified",
+      "added": 16,
+      "removed": 3,
+      "lines": 78,
+      "anchor": "0390af1bb37e46c72dba4c77c3edec12090f2194e85834287417bf2c9aaacb82"
+    },
+    {
+      "path": "src/main/java/bakery/payments/PaymentGateway.java",
+      "status": "added",
+      "added": 6,
+      "removed": 0,
+      "lines": 6,
+      "anchor": "ca570bc7ab2502dcce4724223a4b6637aece929aef8ae9e02dc1444078e1aafb"
+    },
+    {
+      "path": "src/main/java/bakery/payments/Refund.java",
+      "status": "added",
+      "added": 6,
+      "removed": 0,
+      "lines": 6,
+      "anchor": "cdb47957217adcbd135ecd1c0b16354d56cfd7396a79a3e0096e03e3de3d9d0c"
+    },
+    {
+      "path": "src/main/java/bakery/pricing/FullRefund.java",
+      "status": "added",
+      "added": 9,
+      "removed": 0,
+      "lines": 9,
+      "anchor": "b3aad7229074dff5d8d1ac02f57f94a502d958734c1a5bee7c2e547d50ddb2de"
+    },
+    {
+      "path": "src/main/java/bakery/pricing/HalfRefund.java",
+      "status": "added",
+      "added": 9,
+      "removed": 0,
+      "lines": 9,
+      "anchor": "fe4b0278951ebc3696df36d302007ccb44563cac49008009fdcf74589c7a9ad5"
+    },
+    {
+      "path": "src/main/java/bakery/pricing/NoRefund.java",
+      "status": "added",
+      "added": 9,
+      "removed": 0,
+      "lines": 9,
+      "anchor": "7f0397c610c97c80896413a7c3182ea4e47cf8fad84225d76fbf0c3919e162ab"
+    },
+    {
+      "path": "src/main/java/bakery/pricing/RefundCalculator.java",
+      "status": "added",
+      "added": 21,
+      "removed": 0,
+      "lines": 21,
+      "anchor": "39def156dc75259c7aea33a780c447d33a3a9f2a83c2086183f17e70b28aec5f"
+    },
+    {
+      "path": "src/main/java/bakery/pricing/RefundPolicy.java",
+      "status": "added",
+      "added": 6,
+      "removed": 0,
+      "lines": 6,
+      "anchor": "a8b92e5c16d4cc398fd3f6b175240fdd7c552e1cd19d60c17f9aadc0850f3d69"
+    },
+    {
+      "path": "src/main/java/bakery/storage/JdbcOrderRepository.java",
+      "status": "modified",
+      "added": 8,
+      "removed": 5,
+      "lines": 59,
+      "anchor": "f01f7fd5461887ab21cf76ee7ebbba70ad15f550b9c4636726cddb3331215928"
+    },
+    {
+      "path": "src/main/resources/db/migration/V3__order_refunds.sql",
+      "status": "added",
+      "added": 9,
+      "removed": 0,
+      "lines": 9,
+      "anchor": "154aef87068996d03dda0f696aeb7c9f428ed4ebdc642df81b6b76ee96232ab8"
+    },
+    {
+      "path": "src/test/java/bakery/api/OrderControllerIT.java",
+      "status": "modified",
+      "added": 5,
+      "removed": 0,
+      "lines": 46,
+      "anchor": "3586ac68150b301b91459b9c010eaa769edf225b35492b3394199ff9eedf9374"
+    },
+    {
+      "path": "src/test/java/bakery/orders/OrderServiceCancelTest.java",
+      "status": "modified",
+      "added": 15,
+      "removed": 5,
+      "lines": 74,
+      "anchor": "2f0d699e12cf6bfc1a73768bebfa269ce5149fd9e46359fecdcbc46e83a992d0"
+    },
+    {
+      "path": "src/test/java/bakery/orders/OrderServiceTest.java",
+      "status": "modified",
+      "added": 5,
+      "removed": 0,
+      "lines": 54,
+      "anchor": "cb6571b4d718820768db1ad8eb6019b84767da856b8219c32f8a4507b837c3d5"
+    },
+    {
+      "path": "src/test/java/bakery/pricing/RefundCalculatorTest.java",
+      "status": "added",
+      "added": 26,
+      "removed": 0,
+      "lines": 26,
+      "anchor": "241797f85ffa8f6fcf034ffd5e547b6ca5571a347801262c18f4b921fe7b3a2d"
+    },
+    {
+      "path": "src/test/java/bakery/support/RecordingPaymentGateway.java",
+      "status": "added",
+      "added": 19,
+      "removed": 0,
+      "lines": 19,
+      "anchor": "c2c412895f473636f19f9864d6dd19b8215f2f0f2fac8d964edab494519e5045"
+    }
+  ]
+}

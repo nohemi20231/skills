@@ -1,0 +1,620 @@
+{
+  "app": "Corner Bakery",
+  "updated": "21 Nov 2026 · 8:21 PM CT",
+  "session": {
+    "url": "https://example.com/mock-session",
+    "name": "mock session"
+  },
+  "summary": [
+    "New **cancel** command: CancelOrder carries the order id and a CancelReason",
+    "OrderStatus gains CANCELLED; an order can be cancelled until it is picked up",
+    "Order keeps **why** and **when**: cancelReason and cancelledAt",
+    "DELETE /orders/{id} on OrderController builds the CancelOrder",
+    "Migration V2 adds cancel_reason and cancelled_at to the **orders** table"
+  ],
+  "modules": [
+    {
+      "name": "api",
+      "color": "pink"
+    },
+    {
+      "name": "orders",
+      "color": "blue"
+    },
+    {
+      "name": "storage",
+      "color": "green"
+    },
+    {
+      "name": "db",
+      "color": "brown"
+    }
+  ],
+  "layers": [
+    "handler",
+    "command",
+    "model",
+    "service",
+    "repository",
+    "schema"
+  ],
+  "legend": {
+    "Commands": [
+      {
+        "name": "ready",
+        "color": "green"
+      },
+      {
+        "name": "pick up",
+        "color": "purple"
+      },
+      {
+        "name": "cancel",
+        "color": "red"
+      }
+    ]
+  },
+  "notes": {
+    "src/main/java/bakery/api/OrderController.java": {
+      "module": "api",
+      "layer": "handler",
+      "class": "OrderController",
+      "change": "DELETE cancels",
+      "lines": [
+        "**DELETE** /orders/{id} takes a CancelRequest",
+        "Unknown reason text fails in CancelReason.valueOf"
+      ],
+      "code": {
+        "lang": "java",
+        "added": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "text": "// DELETE /orders/{id}\npublic Order cancel(String orderId, CancelRequest request) {\n\n    // the reason arrives as text\n    CancelReason reason = CancelReason.valueOf(request.reason());\n\n    return orders.handle(new CancelOrder(orderId, reason));\n}"
+      }
+    },
+    "src/main/java/bakery/api/dto/CancelRequest.java": {
+      "module": "api",
+      "layer": "model",
+      "kind": "record",
+      "class": "CancelRequest",
+      "change": "new request body",
+      "code": {
+        "lang": "java",
+        "added": [
+          1,
+          2
+        ],
+        "text": "public record CancelRequest(String reason) {\n}"
+      }
+    },
+    "src/main/java/bakery/orders/CancelReason.java": {
+      "module": "orders",
+      "layer": "model",
+      "kind": "enum",
+      "class": "CancelReason",
+      "change": "three reasons",
+      "code": {
+        "lang": "java",
+        "added": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "text": "public enum CancelReason {\n    CUSTOMER_REQUEST,\n    OUT_OF_STOCK,\n    SHOP_CLOSED\n}"
+      }
+    },
+    "src/main/java/bakery/orders/Order.java": {
+      "module": "orders",
+      "layer": "model",
+      "kind": "record",
+      "class": "Order",
+      "change": "reason and time",
+      "lines": [
+        "Both new fields are **null** until the order is cancelled"
+      ],
+      "code": {
+        "lang": "java",
+        "changed": [
+          7
+        ],
+        "added": [
+          8,
+          9,
+          11,
+          12,
+          13,
+          14
+        ],
+        "text": "public record Order(\n        String id,\n        String customer,\n        List<String> items,\n        int totalCents,\n        OrderStatus status,\n        Instant placedAt,\n        CancelReason cancelReason,\n        Instant cancelledAt) {\n\n    // a cancelled order keeps why and when\n    public Order cancelled(CancelReason reason, Instant at) {\n        return new Order(id, customer, items, totalCents, OrderStatus.CANCELLED, placedAt, reason, at);\n    }\n}"
+      }
+    },
+    "src/main/java/bakery/orders/OrderService.java": {
+      "module": "orders",
+      "layer": "service",
+      "class": "OrderService",
+      "change": "handles cancel",
+      "lines": [
+        "PLACED and READY can be cancelled",
+        "PICKED_UP and CANCELLED throw IllegalTransition"
+      ],
+      "code": {
+        "lang": "java",
+        "added": [
+          6,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20
+        ],
+        "text": "public Order handle(OrderCommand command) {\n    return switch (command) {\n        case PlaceOrder place -> place(place);\n        case MarkReady ready -> move(ready.orderId(), OrderStatus.PLACED, OrderStatus.READY);\n        case PickUp pickUp -> move(pickUp.orderId(), OrderStatus.READY, OrderStatus.PICKED_UP);\n        case CancelOrder cancel -> cancel(cancel);\n    };\n}\n\nprivate Order cancel(CancelOrder command) {\n    Order order = find(command.orderId());\n\n    // only an order still in the shop can be cancelled\n    if (order.status() == OrderStatus.PICKED_UP || order.status() == OrderStatus.CANCELLED) {\n        throw new IllegalTransition(order.id(), order.status(), OrderStatus.CANCELLED);\n    }\n\n    Order cancelled = order.cancelled(command.reason(), clock.instant());\n    return repository.save(cancelled);\n}"
+      }
+    },
+    "src/main/java/bakery/orders/OrderStatus.java": {
+      "module": "orders",
+      "layer": "model",
+      "kind": "enum",
+      "class": "OrderStatus",
+      "change": "adds CANCELLED",
+      "code": {
+        "lang": "java",
+        "changed": [
+          4
+        ],
+        "added": [
+          5
+        ],
+        "text": "public enum OrderStatus {\n    PLACED,\n    READY,\n    PICKED_UP,\n    CANCELLED\n}"
+      }
+    },
+    "src/main/java/bakery/orders/command/CancelOrder.java": {
+      "module": "orders",
+      "layer": "command",
+      "kind": "record",
+      "class": "CancelOrder",
+      "change": "new command",
+      "code": {
+        "lang": "java",
+        "added": [
+          1,
+          2
+        ],
+        "text": "public record CancelOrder(String orderId, CancelReason reason) implements OrderCommand {\n}"
+      }
+    },
+    "src/main/java/bakery/orders/command/OrderCommand.java": {
+      "module": "orders",
+      "layer": "command",
+      "kind": "interface",
+      "class": "OrderCommand",
+      "change": "permits CancelOrder",
+      "code": {
+        "lang": "java",
+        "changed": [
+          1
+        ],
+        "text": "public sealed interface OrderCommand permits PlaceOrder, MarkReady, PickUp, CancelOrder {\n}"
+      }
+    },
+    "src/main/java/bakery/storage/JdbcOrderRepository.java": {
+      "module": "storage",
+      "layer": "repository",
+      "class": "JdbcOrderRepository",
+      "change": "writes reason, time",
+      "lines": [
+        "The UPSERT now updates **three** columns on conflict"
+      ],
+      "code": {
+        "lang": "sql",
+        "changed": [
+          1,
+          2,
+          4
+        ],
+        "added": [
+          5,
+          6
+        ],
+        "text": "INSERT INTO orders (id, customer, items, total_cents, status, placed_at, cancel_reason, cancelled_at)\nVALUES (?, ?, ?, ?, ?, ?, ?, ?)\nON CONFLICT (id) DO UPDATE SET\n    status = EXCLUDED.status,\n    cancel_reason = EXCLUDED.cancel_reason,\n    cancelled_at = EXCLUDED.cancelled_at"
+      }
+    },
+    "src/main/resources/db/migration/V2__order_cancellation.sql": {
+      "module": "db",
+      "layer": "schema",
+      "kind": "table",
+      "class": "orders",
+      "change": "two cancel columns",
+      "code": {
+        "lang": "sql",
+        "added": [
+          1,
+          2,
+          3
+        ],
+        "text": "ALTER TABLE orders\n    ADD COLUMN cancel_reason TEXT NULL,\n    ADD COLUMN cancelled_at  TIMESTAMP NULL;"
+      }
+    },
+    "src/test/java/bakery/api/OrderControllerIT.java": {
+      "change": "DELETE cancels, bad reason"
+    },
+    "src/test/java/bakery/orders/OrderServiceCancelTest.java": {
+      "change": "four cancel cases"
+    },
+    "src/test/java/bakery/orders/OrderServiceTest.java": {
+      "change": "reason starts null"
+    }
+  },
+  "sections": [
+    {
+      "type": "sequence",
+      "title": "Cancel an order end to end",
+      "files": [
+        "src/main/java/bakery/api/OrderController.java",
+        "src/main/java/bakery/orders/OrderService.java",
+        "src/main/java/bakery/storage/JdbcOrderRepository.java"
+      ],
+      "actors": [
+        {
+          "name": "Customer",
+          "color": "gray"
+        },
+        {
+          "name": "api",
+          "sub": "OrderController",
+          "color": "pink"
+        },
+        {
+          "name": "orders",
+          "sub": "OrderService",
+          "color": "blue"
+        },
+        {
+          "name": "storage",
+          "sub": "OrderRepository",
+          "color": "green"
+        }
+      ],
+      "steps": [
+        {
+          "from": "Customer",
+          "to": "api",
+          "label": "DELETE",
+          "value": "/orders/B4f2a1c"
+        },
+        {
+          "from": "api",
+          "to": "orders",
+          "label": "handle",
+          "value": "CancelOrder(B4f2a1c, CUSTOMER_REQUEST)"
+        },
+        {
+          "from": "orders",
+          "to": "storage",
+          "label": "findById",
+          "value": "B4f2a1c"
+        },
+        {
+          "from": "storage",
+          "to": "orders",
+          "label": "Order",
+          "value": "status PLACED",
+          "reply": true
+        },
+        {
+          "from": "orders",
+          "to": "storage",
+          "label": "save",
+          "value": "status CANCELLED, reason, time"
+        },
+        {
+          "from": "storage",
+          "to": "orders",
+          "label": "Order",
+          "value": "saved",
+          "reply": true
+        },
+        {
+          "from": "orders",
+          "to": "api",
+          "label": "Order",
+          "value": "status CANCELLED",
+          "reply": true
+        },
+        {
+          "from": "api",
+          "to": "Customer",
+          "label": "200",
+          "value": "the cancelled Order",
+          "reply": true
+        }
+      ]
+    },
+    {
+      "type": "json",
+      "title": "The JSON",
+      "files": [
+        "src/main/java/bakery/api/dto/CancelRequest.java",
+        "src/main/java/bakery/orders/Order.java",
+        "src/main/resources/db/migration/V2__order_cancellation.sql"
+      ],
+      "items": [
+        {
+          "title": "DELETE /orders/{id} body",
+          "color": "pink",
+          "value": {
+            "reason": "CUSTOMER_REQUEST",
+            "note": "?"
+          },
+          "unknown": [
+            "note"
+          ]
+        },
+        {
+          "title": "Order after cancel",
+          "color": "blue",
+          "value": {
+            "id": "B4f2a1c",
+            "customer": "Ana",
+            "items": [
+              "croissant",
+              "baguette"
+            ],
+            "totalCents": 770,
+            "status": "CANCELLED",
+            "placedAt": "2026-11-09T15:02:11Z",
+            "cancelReason": "CUSTOMER_REQUEST",
+            "cancelledAt": "2026-11-09T15:10:42Z"
+          }
+        },
+        {
+          "title": "orders row",
+          "color": "brown",
+          "value": {
+            "id": "B4f2a1c",
+            "customer": "Ana",
+            "items": "croissant,baguette",
+            "total_cents": 770,
+            "status": "CANCELLED",
+            "placed_at": "2026-11-09 15:02:11",
+            "cancel_reason": "CUSTOMER_REQUEST",
+            "cancelled_at": "2026-11-09 15:10:42"
+          }
+        }
+      ]
+    },
+    {
+      "type": "modules",
+      "title": "Modules and layers",
+      "files": [
+        "src/main/java/bakery/api/OrderController.java",
+        "src/main/java/bakery/orders/OrderService.java",
+        "src/main/java/bakery/storage/JdbcOrderRepository.java"
+      ],
+      "edges": [
+        {
+          "from": "api",
+          "to": "orders",
+          "label": "handle"
+        },
+        {
+          "from": "orders",
+          "to": "storage",
+          "label": "save"
+        },
+        {
+          "from": "storage",
+          "to": "db",
+          "label": "UPSERT"
+        }
+      ],
+      "table": {
+        "columns": [
+          "Caller",
+          "Callee",
+          "What"
+        ],
+        "rows": [
+          [
+            "api",
+            "orders",
+            "OrderService.handle(OrderCommand), OrderService.find(orderId)"
+          ],
+          [
+            "orders",
+            "storage",
+            "OrderRepository.save(order), OrderRepository.findById(orderId)"
+          ],
+          [
+            "storage",
+            "db",
+            "INSERT INTO orders … ON CONFLICT DO UPDATE"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "tree",
+      "title": "Type hierarchy",
+      "files": [
+        "src/main/java/bakery/orders/command/OrderCommand.java",
+        "src/main/java/bakery/orders/command/CancelOrder.java",
+        "src/main/java/bakery/orders/OrderStatus.java",
+        "src/main/java/bakery/orders/CancelReason.java"
+      ],
+      "roots": [
+        {
+          "name": "OrderCommand",
+          "color": "blue",
+          "tag": "orders.command",
+          "children": [
+            {
+              "name": "PlaceOrder"
+            },
+            {
+              "name": "MarkReady"
+            },
+            {
+              "name": "PickUp"
+            },
+            {
+              "name": "CancelOrder",
+              "sub": "NEW",
+              "color": "gold"
+            }
+          ]
+        },
+        {
+          "name": "OrderStatus",
+          "color": "blue",
+          "tag": "orders",
+          "children": [
+            {
+              "name": "PLACED"
+            },
+            {
+              "name": "READY"
+            },
+            {
+              "name": "PICKED_UP"
+            },
+            {
+              "name": "CANCELLED",
+              "sub": "NEW",
+              "color": "gold"
+            }
+          ]
+        },
+        {
+          "name": "CancelReason",
+          "sub": "NEW",
+          "color": "gold",
+          "tag": "orders",
+          "children": [
+            {
+              "name": "CUSTOMER_REQUEST"
+            },
+            {
+              "name": "OUT_OF_STOCK"
+            },
+            {
+              "name": "SHOP_CLOSED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Result matrix",
+      "files": [
+        "src/main/java/bakery/orders/OrderService.java"
+      ],
+      "columns": [
+        "Status before",
+        "ready",
+        "pick up",
+        "cancel"
+      ],
+      "colors": [
+        "gray",
+        "green",
+        "purple",
+        "red"
+      ],
+      "rows": [
+        [
+          "PLACED",
+          "✓",
+          "✗",
+          "✓"
+        ],
+        [
+          "READY",
+          "✗",
+          "✓",
+          "✓"
+        ],
+        [
+          "PICKED_UP",
+          "✗",
+          "✗",
+          "✗"
+        ],
+        [
+          "CANCELLED",
+          "✗",
+          "✗",
+          "✗"
+        ]
+      ]
+    },
+    {
+      "type": "file-tiles",
+      "title": "Classes"
+    },
+    {
+      "type": "lifecycle",
+      "title": "Order lifecycle",
+      "files": [
+        "src/main/java/bakery/orders/OrderService.java",
+        "src/main/java/bakery/orders/OrderStatus.java"
+      ],
+      "states": [
+        {
+          "name": "PLACED",
+          "color": "blue"
+        },
+        {
+          "name": "READY",
+          "color": "green"
+        },
+        {
+          "name": "PICKED_UP",
+          "color": "purple"
+        },
+        {
+          "name": "CANCELLED",
+          "sub": "NEW",
+          "color": "gold"
+        }
+      ],
+      "transitions": [
+        {
+          "from": "PLACED",
+          "to": "READY",
+          "label": "ready"
+        },
+        {
+          "from": "READY",
+          "to": "PICKED_UP",
+          "label": "pick up"
+        },
+        {
+          "from": "PLACED",
+          "to": "CANCELLED",
+          "label": "cancel"
+        },
+        {
+          "from": "READY",
+          "to": "CANCELLED",
+          "label": "cancel"
+        }
+      ]
+    }
+  ]
+}
