@@ -1,0 +1,25 @@
+name: Changelog
+
+# A pull request that changes a skill or the sync tooling must add a line to
+# CHANGELOG.md (README.md, "Releasing a change"). The skip-changelog label
+# turns the check off for one pull request.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  changelog:
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-changelog') }}
+    runs-on: ubuntu-latest
+    steps:
+      # Depth 2 fetches the PR's merge commit and its first parent, the base branch.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+
+      - name: CHANGELOG.md has a line for this change
+        run: bash ci/check-changelog.sh HEAD^1 HEAD
