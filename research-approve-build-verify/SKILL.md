@@ -50,6 +50,22 @@ Claude Code usually offers a new agent within seconds, without a restart. When t
 
 **Launch them by name**, the independent ones in a single message so they run in parallel. An agent starts with an empty context, so the brief is all it knows. Send what its phase lists (for a research role: the feature request in the user's words, the role and its points, and the matching lessons), as file paths rather than pasted contents. Leave your own conclusion out; an agent that is handed the expected answer tends to return it.
 
+**Check that nothing changed.** A tool list does not cover the fallback, and `qa-verifier` has a shell. So record these four lines before every launch (once for agents launched together) and again after the last report:
+
+```
+git rev-parse --abbrev-ref HEAD
+git rev-parse HEAD
+git diff HEAD --binary | git hash-object --stdin
+git status --porcelain
+```
+
+Do not change files yourself while an agent runs. Then compare:
+
+- The branch, the commit or the diff hash differs: a tracked file or the history changed while the agent ran. Stop, show the user what changed, and do not undo it yourself.
+- Only the status list differs: untracked files appeared, usually test output that `.gitignore` does not cover. Continue, and name them in the Phase 6 report.
+
+The check does not see a push, or a change outside the repository.
+
 **When the harness cannot run them** (it has no named agents, `.claude/agents/` cannot be written, or the session does not offer an agent you just created): read the definition, put its body (everything below the frontmatter) at the top of an ordinary subagent's prompt, and state the tool list in the brief. Where that subagent has no search tool of its own, allow it read-only shell commands for searching, and nothing that writes. Say in the Phase 6 report that the agents ran through the fallback: the tool limits were asked for, not enforced.
 
 **Writing a definition.** A definition holds what stays the same from slice to slice: the job, the tool list, the rules and the shape of the report. Checklists stay in this file and travel in the brief, so a project's copy does not go stale when a checklist changes. The frontmatter has three fields: `name` (the file name without `.agent.md`), `description` (when to launch it and what it never does) and `tools` (the shortest list that does the job; leaving the line out grants every tool). It sets no `model`, so the agent runs on the session's model on either harness. To change one of the two, or to add one to the workflow, edit `agents/` next to this file in the repo this skill comes from, never a project's copy.
@@ -174,7 +190,7 @@ Fix only failures the QA agent confirmed with evidence. Do not chase speculative
 End with a short report:
 
 - What changed, file by file, in one line each
-- Validation evidence: commands run, test counts, pass/fail results, and whether the agents ran by name or through the fallback
+- Validation evidence: commands run, test counts, pass/fail results, whether the agents ran by name or through the fallback, and what the nothing-changed check found
 - QA findings and how each was resolved
 - Anything deferred or still open
 - Size (SC-9): production, test and doc lines changed, and open items before and after
