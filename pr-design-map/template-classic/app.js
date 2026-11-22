@@ -200,6 +200,97 @@
     return svg;
   }
 
+  /* ---------- hub map: an actor on top, one wide hub band, groups that list their members, one wide store band ---------- */
+  const HUB = {
+    title: 13.5, sub: 11.5, label: 12.5,                 // font sizes of .title, .sub and .arrow in style.css
+    edge: 20, clear: 8, gap: 24,                         // margin around the drawing; free space beside a label; least space between groups
+    lane: 12, labelPad: 10, arrowLen: 70,                     // an arrow's offset from the group's center; arrow to its label; arrow length
+    band: 60, topH: 52, topMin: 180, textPad: 20,        // hub and store bands; the top actor's box; room beside a box's text
+    groupMin: 130, groupPad: 12, header: 34, headerSub: 50,  // group box; its header without and with a sub line
+    nameAt: 22, subAt: 40, noteAt: 14, noteH: 22,        // baselines of the group's name and sub; of the note under the last pill; the note's height
+    pill: 28, pillGap: 6, pillPad: 11, baseline: 4,          // member pill; a text's baseline below the middle of its row
+  };
+  const labelOf = v => typeof v === 'string' ? v.trim() : '';   // a label or caption is a string; true, false and nothing draw no text
+  /* px width of a text, estimated per character, because the fonts load after the page is drawn, so nothing can be measured here */
+  const GLYPH_EM = { widest: 0.9, wide: 0.72, narrow: 0.36, other: 0.6, boldGain: 1.05 };   // M W m w; other capitals; i l t and punctuation; the rest
+  const textPx = (str, size) => {
+    let em = 0;
+    for (const ch of labelOf(str)) em += /[MWmw@%]/.test(ch) ? GLYPH_EM.widest : /[A-Z_&#]/.test(ch) ? GLYPH_EM.wide : /[iljtfr.,:;'|!()[\]{}\/ -]/.test(ch) ? GLYPH_EM.narrow : GLYPH_EM.other;
+    return em * size;
+  };
+  const boldPx = (str, size) => textPx(str, size) * GLYPH_EM.boldGain;
+  /* Where everything in a hub map goes: sizes in, positions out, nothing drawn. A group's labels sit left and right of its arrows, so
+     two neighbours stand at least the widest right-hand label plus the widest left-hand one apart; the bands are at least as wide as
+     the hub's, the store's and the top actor's own text and labels, with the row of groups centered under them. */
+  function hubLayout(s) {
+    const K = HUB, ownOr = (own, shared) => own == null ? shared : own, labelPx = t => boldPx(t, K.label);
+    // the arrows of one box: `twoWay` when one comes back up, `linked` when it reaches the store (link is false without a store)
+    const arrowsOf = (down, up, link) => ({ down: labelOf(down), up: labelOf(up), twoWay: up != null && up !== false, link: labelOf(link), linked: link !== false });
+    const groups = (s.groups || []).map(group => {
+      const arrows = arrowsOf(ownOr(group.down, s.down), ownOr(group.up, s.up), s.store ? ownOr(group.link, s.store.link) : false), members = group.members || [];
+      return {
+        group, members, arrows,
+        left: arrows.twoWay ? K.lane + (arrows.down ? K.labelPad + labelPx(arrows.down) : 0) : 0,
+        right: Math.max(arrows.twoWay ? K.lane + (arrows.up ? K.labelPad + labelPx(arrows.up) : 0) : (arrows.down ? K.labelPad + labelPx(arrows.down) : 0), arrows.linked && arrows.link ? K.labelPad + labelPx(arrows.link) : 0),
+        text: Math.max(boldPx(group.name, K.title), textPx(group.note, K.sub), textPx(group.sub, K.sub), ...members.map(m => textPx(m, K.sub) + 2 * K.pillPad)) + 2 * K.groupPad,
+        height: (group.sub ? K.headerSub : K.header) + members.length * (K.pill + K.pillGap) + (group.note ? K.noteH : 0) + K.groupPad,
+      };
+    });
+    const largest = (measure, atLeast) => Math.max(atLeast, ...groups.map(measure));
+    const groupW = Math.round(largest(placed => placed.text, K.groupMin)), left = largest(placed => placed.left, 0), right = largest(placed => placed.right, 0);
+    const pitch = Math.round(Math.max(groupW + K.gap, left + right + 2 * K.clear));
+    const row = Math.max(groups.length - 1, 0) * pitch + groupW;
+    const top = s.top ? arrowsOf(s.top.down, s.top.up, false) : null;
+    const topReach = top ? (top.twoWay ? K.lane : 0) + K.labelPad + Math.max(labelPx(top.down), labelPx(top.up)) + K.clear : 0;
+    const boxText = b => b ? Math.max(boldPx(b.name, K.title), textPx(b.sub, K.sub)) + 2 * K.textPad : 0;
+    const topW = s.top ? Math.round(Math.max(K.topMin, boxText(s.top))) : 0;
+    const bandW = Math.round(Math.max(row, topW, 2 * topReach, boxText(s.hub), boxText(s.store)));
+    const inset = (bandW - row) / 2;
+    const bandX = Math.round(Math.max(K.edge, K.clear + left - groupW / 2 - inset));
+    const firstX = bandX + inset, lastMiddle = firstX + row - groupW / 2;
+    return { groups, groupW, groupH: largest(placed => placed.height, K.band), pitch, bandX, bandW, firstX, top, topW, mid: bandX + bandW / 2, width: Math.round(Math.max(bandX + bandW + K.edge, lastMiddle + right + K.clear)) };
+  }
+  /* Draws what hubLayout placed. Every arrow is vertical, in its caller's color, its label on the outer side of it. A group reaches
+     the store both ways, or reads only (dashed, store to group), or not at all (link: false). */
+  function hubDiagram(s) {
+    const K = HUB, L = hubLayout(s), svg = svgRoot(), hub = s.hub || {}, hubCol = color(hub.color || 'gray');
+    const stroke = (x, from, to, c, dashed) => arrow(svg, `M${x},${from} L${x},${to}`, c, dashed);
+    // one arrow down from the upper box and, with `twoWay`, one up again; a lone arrow sits on the center, its label to the right
+    const between = (x, upper, lower, cols, arrows) => {
+      const lane = arrows.twoWay ? K.lane : 0, y = (upper + lower) / 2 + K.baseline;
+      stroke(x - lane, upper, lower, cols.down);
+      if (arrows.twoWay) stroke(x + lane, lower, upper, cols.up);
+      if (arrows.down) text(svg, arrows.twoWay ? x - lane - K.labelPad : x + K.labelPad, y, arrows.down, 'arrow halo', cols.down, arrows.twoWay ? 'end' : 'start');
+      if (arrows.twoWay && arrows.up) text(svg, x + lane + K.labelPad, y, arrows.up, 'arrow halo', cols.up, 'start');
+    };
+    let y = K.edge;
+    if (s.top) {
+      const topCol = color(s.top.color || 'gray');
+      box(svg, L.mid - L.topW / 2, y, L.topW, K.topH, s.top.name, s.top.sub, topCol);
+      between(L.mid, y + K.topH, y + K.topH + K.arrowLen, { down: topCol, up: hubCol }, L.top);
+      y += K.topH + K.arrowLen;
+    }
+    box(svg, L.bandX, y, L.bandW, K.band, hub.name, hub.sub, hubCol);
+    const groupY = y + K.band + K.arrowLen, groupEnd = groupY + L.groupH, storeY = groupEnd + K.arrowLen, pillW = L.groupW - 2 * K.groupPad;
+    L.groups.forEach((placed, i) => {
+      const g = placed.group, x = L.firstX + i * L.pitch, cx = x + L.groupW / 2, c = color(g.color, i);
+      between(cx, y + K.band, groupY, { down: hubCol, up: c }, placed.arrows);
+      const frame = tinted(sv('g'), c);
+      frame.append(sv('rect', { x, y: groupY, width: L.groupW, height: L.groupH, rx: 6, fill: 'currentColor', 'fill-opacity': 0.14, stroke: 'currentColor', 'stroke-width': 2 }), sv('text', { x: cx, y: groupY + K.nameAt, 'text-anchor': 'middle', class: 'title' }, g.name));
+      svg.append(frame);
+      if (g.sub) text(svg, cx, groupY + K.subAt, g.sub, 'sub');
+      let pillY = groupY + (g.sub ? K.headerSub : K.header);
+      placed.members.forEach(m => { svg.append(sv('rect', { x: cx - pillW / 2, y: pillY, width: pillW, height: K.pill, rx: 5, class: 'member' })); text(svg, cx, pillY + K.pill / 2 + K.baseline, m, 'sub'); pillY += K.pill + K.pillGap; });
+      if (g.note) text(svg, cx, pillY + K.noteAt, g.note, 'note');
+      if (!placed.arrows.linked) return;
+      if (g.readOnly) stroke(cx, storeY, groupEnd, c, true); else { stroke(cx, groupEnd, storeY, c); stroke(cx, storeY, groupEnd, c); }
+      if (placed.arrows.link) text(svg, cx + K.labelPad, groupEnd + K.arrowLen / 2 + K.baseline, placed.arrows.link, 'arrow halo', c, 'start');
+    });
+    if (s.store) box(svg, L.bandX, storeY, L.bandW, K.band, s.store.name, s.store.sub, color(s.store.color || 'brown'));
+    fit(svg, L.width, 0, (s.store ? storeY + K.band : groupEnd) + K.edge); fixMarkers(svg);
+    return svg;
+  }
+
   /* Lifecycle: pill-shaped states in a row, straight arrows between neighbours, arcs over or under the others, in the source's color. */
   function lifecycleDiagram(states, transitions) {
     const W = 180, H = 60, GAP = 110, perRow = Math.min(states.length, 4), rows = Math.ceil(states.length / perRow), ROWH = 220;
@@ -225,7 +316,8 @@
 
 
   /* ---------- components ---------- */
-  const fig = svg => h('figure', {}, h('div', { class: 'scroll' }, svg));
+  /* a diagram; the section's caption, when it has one, sits under it */
+  const fig = (svg, caption) => h('figure', {}, h('div', { class: 'scroll' }, svg), labelOf(caption) ? h('figcaption', {}, labelOf(caption)) : null);
   /* a surface card whose full-width header button ("<label> … Hide ▴ / Show ▾") folds its body */
   function foldBox(label, kind, body, open = true) {
     const act = h('span', { class: 'act' }, open ? 'Hide ▴' : 'Show ▾');
@@ -308,15 +400,16 @@
   }
   const steps = (items, stack, render) => h('div', { class: 'three' + (stack ? ' stack' : '') }, items.map((it, i) => { const c = color(it.color, i); return h('div', { class: 'step' }, it.tag ? col(h('span', { class: 'tag' }, it.tag), c) : null, it.title ? h('h3', {}, it.title) : null, render(it, c, i)); }));
   const RENDER = {
-    sequence: s => [fig(sequenceDiagram(s)), s.table ? table(s.table) : null],
+    sequence: s => [fig(sequenceDiagram(s), s.caption), s.table ? table(s.table) : null],
     json: s => steps(s.items || [], s.stack, (it, c) => [it.lines ? h('ul', {}, it.lines.map(l => h('li', {}, l))) : null, jsonBlock(it.value, it.unknown, c)]),
-    modules: s => [fig(layersDiagram(s.edges)), s.table ? [h('h3', {}, 'Who talks to whom'), table(s.table)] : null],
-    tree: s => steps(s.roots || [], s.stack, r => treeBlock(r)),
+    modules: s => [fig(layersDiagram(s.edges), s.caption), s.table ? [h('h3', {}, 'Who talks to whom'), table(s.table)] : null],
+    hub: s => [fig(hubDiagram(s), s.caption), s.table ? table(s.table) : null],
+    tree: s => [steps(s.roots || [], s.stack, r => treeBlock(r)), labelOf(s.caption) ? h('p', { class: 'caption' }, labelOf(s.caption)) : null],
     table: s => table(s),
     tiles: s => h('div', { class: 'cards' + (s.stack ? ' stack' : '') }, (s.items || []).map((t, i) => card(t, i))),
     code: s => codeBlock(s.code, s.edge ? color(s.edge) : null),
     'file-tiles': () => groupedFileCards(),
-    lifecycle: s => fig(lifecycleDiagram((s.states || []).map((st, i) => typeof st === 'string' ? { name: st, color: CYCLE[i % CYCLE.length] } : st), s.transitions)),
+    lifecycle: s => fig(lifecycleDiagram((s.states || []).map((st, i) => typeof st === 'string' ? { name: st, color: CYCLE[i % CYCLE.length] } : st), s.transitions), s.caption),
     proposal: s => [
       h('div', { class: 'group-title' }, h('h3', {}, 'Current')), h('div', { class: 'cards stack' }, card({ ...s.current, color: s.current.color || 'gray' }, 0)),
       ...(s.options || []).map((o, i) => [h('div', { class: 'group-title' }, h('h3', {}, `Option: ${o.title}`)), h('div', { class: 'cards stack' }, card(o, i + 1))]).flat(),

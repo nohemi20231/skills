@@ -35,6 +35,13 @@ style() {
   printf '</style>'
 }
 
+# A caption under every diagram: one or two sentences, 30 words at most. Reported, never fatal, so an older map still builds.
+# A caption that is not a string counts as missing (the page does not show it either).
+jq -r '.sections[] | select(.type == "sequence" or .type == "modules" or .type == "hub" or .type == "tree" or .type == "lifecycle")
+  | (.caption | if type == "string" then . else "" end | split("\n") | join(" ") | split("\t") | join(" ") | split(" ") | map(select(length > 0)) | length) as $words
+  | if $words == 0 then "warning: section \"\(.title)\" has no caption"
+    elif $words > 30 then "warning: the caption of \"\(.title)\" has \($words) words (30 at most)" else empty end' <<<"$merged" >&2
+
 title=$(jq -r '"\(.app) Design Map: PR #\(.pr.number)" | @html' <<<"$merged")
 while IFS= read -r line || [ -n "$line" ]; do
   case $line in
