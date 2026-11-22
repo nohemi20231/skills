@@ -198,6 +198,17 @@ End with a short report:
 
 The PR description carries a **Verified** section with this evidence: test commands and counts, plus any diff, sync or manual check run. A claim with no recorded check counts as unverified.
 
+The PR description also carries one line that names every skill loaded for the slice. A grader reads it from the PR, so it works for a build whose session logs are not on the grader's machine:
+
+```
+Skills loaded: research-approve-build-verify, clean-code, test-driven-development
+```
+
+- List each skill once, in the order first loaded: the ones this session loaded and the ones an agent's report says it loaded. Start the list at the first load and keep it through the slice; a summarized context can drop it.
+- Write the bare name: drop any prefix up to the last colon, so `some-plugin:clean-code` is `clean-code`.
+- Only skills that were loaded, never ones that would have applied. With none, write `Skills loaded: none`.
+- Keep it one line that starts with `Skills loaded:`, and update it when a later commit on the PR loads another skill.
+
 Then one PR per slice, with one line in the change log. A design map (`pr-design-map`, when that skill is installed; otherwise the architecture diagram from the approved proposal goes in the PR description) only when the slice uses the full process (`design-rulebook` SC-6: a new module or service, a contract between modules, a new outside service). Small behavior-preserving refactors that fall out of the review go in the same PR when the same suite guards them; a separate PR only when a contract changes.
 
 ## Rules throughout
