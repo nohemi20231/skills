@@ -18,6 +18,7 @@ The agent writes `map.json` only. `files.json` comes from `scripts/pr-files.sh` 
 }
 ```
 
+- A design page (SKILL.md, "Design page") has no pull request: its files.json comes from `scripts/design-facts.sh` and carries `design: {name, branch, head, date, uncommitted}` in place of `pr`, with an empty `files`. It is titled `<App> Design: <name>`. `modules` and `file-tiles` belong to PR maps only.
 - `template` (optional): `"classic"` renders the page with `template-classic/` (the first look: IBM Plex, light and dark, numbered sections, layered module columns, text trees, cards); omitted or `"default"` uses `template/`. `build.sh -t` overrides it.
 - `summary`: what the PR changes, three to six bullets of one short line each (a single string is one bullet). Rendered under the PR facts as a "What changed" tile that folds (Hide ▴ / Show ▾), open at first; auto-highlighted like `lines`. Omitted: no tile.
 - `modules`: one color each from pink, blue, gold, green, orange, purple, red, brown, gray (or any CSS color; classic also knows teal). Columns of the "New and modified" grid and the module diagram boxes.

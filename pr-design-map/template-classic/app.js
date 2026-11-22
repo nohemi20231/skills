@@ -37,6 +37,12 @@
   const prUrl = () => M.pr.url || `${repo()}/pull/${M.pr.number}`;
   const fileUrl = f => `${repo()}/blob/${M.pr.head}/${f.path}`;
   const diffUrl = f => `${prUrl()}/files#diff-${f.anchor}`;
+  /* A design page shows a design that has no pull request yet: files.json carries `design` facts in place of `pr`, and no changed files. */
+  const DESIGN = M.design || null;
+  const pageTitle = () => DESIGN ? `${M.app} Design: ${DESIGN.name}` : `${M.app} Design Map: PR #${M.pr.number}`;
+  const pageTag = () => DESIGN ? DESIGN.name : `PR #${M.pr.number}`;
+  const headSha = () => String((DESIGN || M.pr).head || '');
+  const headText = () => (headSha() ? headSha().slice(0, 7) : 'not committed') + (DESIGN && DESIGN.uncommitted ? ` · ${DESIGN.uncommitted} uncommitted` : '');
   const pill = (href, html) => h('a', { class: 'pill', href, target: '_blank', rel: 'noopener', html: html + ' ↗' });
   const delta = f => `<span class="add">+${f.added}</span> <span class="del">−${f.removed}</span>`;
   const countPill = f => h('span', { class: 'count' }, `${f.lines} lines`);
@@ -408,7 +414,7 @@
     table: s => table(s),
     tiles: s => h('div', { class: 'cards' + (s.stack ? ' stack' : '') }, (s.items || []).map((t, i) => card(t, i))),
     code: s => codeBlock(s.code, s.edge ? color(s.edge) : null),
-    'file-tiles': () => groupedFileCards(),
+    'file-tiles': () => files().length ? groupedFileCards() : null,
     lifecycle: s => fig(lifecycleDiagram((s.states || []).map((st, i) => typeof st === 'string' ? { name: st, color: CYCLE[i % CYCLE.length] } : st), s.transitions), s.caption),
     proposal: s => [
       h('div', { class: 'group-title' }, h('h3', {}, 'Current')), h('div', { class: 'cards stack' }, card({ ...s.current, color: s.current.color || 'gray' }, 0)),
@@ -429,8 +435,10 @@
   function header() {
     const fs = M.files || []; const added = fs.reduce((a, f) => a + (f.added || 0), 0), removed = fs.reduce((a, f) => a + (f.removed || 0), 0);
     const el = h('header');
-    el.append(h('h1', {}, `${M.app} Design Map: PR #${M.pr.number}`));
-    const meta = h('p', { class: 'meta' }, pill(prUrl(), `PR #${M.pr.number}`), '·', h('span', {}, M.pr.branch), '·', h('span', { class: 'sha' }, String(M.pr.head).slice(0, 7)), '·', h('span', {}, M.pr.date), '·', h('span', { html: `${fs.length} files <span class="add">+${added}</span> <span class="del">−${removed}</span>` }), '·', h('span', {}, `Updated ${M.updated || ''}`));
+    el.append(h('h1', {}, pageTitle()));
+    const facts = DESIGN || M.pr, dot = '·';
+    const meta = h('p', { class: 'meta' }, DESIGN ? h('span', {}, DESIGN.name) : pill(prUrl(), `PR #${M.pr.number}`), dot, h('span', {}, facts.branch || ''), dot, h('span', { class: 'sha' }, headText()), dot, h('span', {}, facts.date || ''), dot,
+      DESIGN ? null : [h('span', { html: `${fs.length} files <span class="add">+${added}</span> <span class="del">−${removed}</span>` }), dot], h('span', {}, `Updated ${M.updated || ''}`));
     if (M.session && M.session.url) meta.append('·', pill(M.session.url, M.session.name || `session ${String(M.session.id || '').slice(0, 8)}`));
     el.append(meta, brief());
     const btn = h('button', { class: 'theme-btn', id: 'themeBtn', type: 'button' }, 'Dark mode'); btn.onclick = () => setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); el.append(btn);
@@ -454,6 +462,7 @@
       ['JSON', [h('code', { html: '<span style="color:var(--j-key)">"key"</span>' }), h('code', { html: '<span style="color:var(--j-str)">"text"</span>' }), h('code', { html: '<span style="color:var(--j-num)">42</span>' }), h('code', { html: '<span style="color:var(--j-null);font-style:italic">null</span>' }), h('code', { html: '<span style="color:var(--j-bad);font-weight:600">"unknown key"</span>' }), h('code', { html: '<span style="color:var(--c-teal);font-weight:600">TypeName</span>' })]],
       ['Links', [countPill(sample), h('span', { class: 'muted' }, 'lines in the file'), h('span', { class: 'pill', html: 'View file ↗' }), h('span', { class: 'pill', html: `View changes ${delta(sample)} ↗` }), h('span', { class: 'muted' }, 'added · removed in this PR')]],
     ];
+    if (DESIGN) for (const name of ['Files', 'Links']) rows.splice(rows.findIndex(r => r[0] === name), 1);   // a design page has no changed files
     if (M.legend) for (const k in M.legend) rows.push([k, M.legend[k].map((e, i) => sw(e.name, color(e.color, i)))]);
     const el = h('div', { class: 'legend' });
     rows.forEach(([k, v]) => el.append(h('div', { class: 'row' }, h('span', { class: 'lbl' }, k), v)));
@@ -463,8 +472,8 @@
   /* ---------- main ---------- */
   function main() {
     const root = document.getElementById('map'); root.innerHTML = '';
-    document.documentElement.setAttribute('data-app', M.app || ''); document.documentElement.setAttribute('data-pr', M.pr.number); document.documentElement.setAttribute('data-head', M.pr.head);
-    document.title = `${M.app} Design Map: PR #${M.pr.number}`;
+    document.documentElement.setAttribute('data-app', M.app || ''); document.documentElement.setAttribute(DESIGN ? 'data-design' : 'data-pr', DESIGN ? DESIGN.name : M.pr.number); document.documentElement.setAttribute('data-head', headSha());
+    document.title = pageTitle();
     root.append(header(), ...(M.sections || []).map(section));
     highlightProse(root); initTheme();
   }

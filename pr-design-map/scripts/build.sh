@@ -15,8 +15,11 @@ case $tpl in default|"") tdir=$here/template;; *) tdir=$here/template-$tpl;; esa
 [ -f "$tdir/index.html" ] || { echo "no template '$tpl' ($tdir)" >&2; exit 1; }
 
 merged=$(jq -s '.[0] * .[1]' "$files" "$map")
-jq -e '.app and .pr.number and .pr.head and .pr.owner and .pr.repo and (.sections|length>0) and (.files|length>0)' <<<"$merged" >/dev/null \
-  || { echo "merged data is missing app, pr.{number,head,owner,repo}, sections or files" >&2; exit 1; }
+# A PR map needs the PR facts and its files (pr-files.sh); a design page needs only its name (design-facts.sh). `design` wins when both are there.
+jq -e '.app and (.sections|length>0) and (((.design.name // "") != "") or (.pr.number and .pr.head and .pr.owner and .pr.repo and (.files|length>0)))' <<<"$merged" >/dev/null \
+  || { echo "merged data is missing app or sections, or has neither design.name nor pr.{number,head,owner,repo} with files" >&2; exit 1; }
+# modules and file-tiles show a PR's changed files, and a design page has none
+jq -r 'select(.design) | .sections[] | select(.type == "modules" or .type == "file-tiles") | "warning: section \"\(.title)\" (\(.type)) shows changed files, and a design page has none"' <<<"$merged" >&2
 
 # JSON inside <script>: every "<" becomes <, so no "</script>" or "<!--" can end the block early.
 json_block() { printf '<script type="application/json" id="%s">' "$1"; jq -c . "$2" | sed 's/</\\u003c/g' | tr -d '\n'; printf '</script>\n'; }
@@ -42,7 +45,7 @@ jq -r '.sections[] | select(.type == "sequence" or .type == "modules" or .type =
   | if $words == 0 then "warning: section \"\(.title)\" has no caption"
     elif $words > 30 then "warning: the caption of \"\(.title)\" has \($words) words (30 at most)" else empty end' <<<"$merged" >&2
 
-title=$(jq -r '"\(.app) Design Map: PR #\(.pr.number)" | @html' <<<"$merged")
+title=$(jq -r 'if .design then "\(.app) Design: \(.design.name)" else "\(.app) Design Map: PR #\(.pr.number)" end | @html' <<<"$merged")
 while IFS= read -r line || [ -n "$line" ]; do
   case $line in
     @@STYLE@@) style; echo ;;
@@ -54,4 +57,4 @@ done < "$tdir/index.html" > "$out/index.html"
 
 # Kept beside the page for the next run's scope check; only index.html is published.
 cp "$map" "$out/map.json"; cp "$files" "$out/files.json"
-echo "built $out/index.html ($(wc -c < "$out/index.html" | tr -d ' ') bytes, template $tpl): $(jq -r '"\(.app) PR #\(.pr.number) · \(.files|length) files · \(.sections|length) sections"' <<<"$merged")"
+echo "built $out/index.html ($(wc -c < "$out/index.html" | tr -d ' ') bytes, template $tpl): $(jq -r 'if .design then "\(.app) design \"\(.design.name)\"" else "\(.app) PR #\(.pr.number) · \(.files|length) files" end + " · \(.sections|length) sections"' <<<"$merged")"

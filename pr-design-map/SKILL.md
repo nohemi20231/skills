@@ -51,6 +51,19 @@ Both templates render the same map.json. The default is `template/`; `"template"
 
 7. Reply with one line and the link.
 
+## Design page (no PR yet)
+
+For a design that has no pull request yet (a design proposal, a Blueprint checkpoint), build a design page. It uses the same template and the same map.json; only the facts differ:
+
+```
+scripts/design-facts.sh <repo-dir> "<name>" files.json
+```
+
+`<name>` is what the page is called, for example "Checkpoint 2, service map". The script takes the branch, the head commit and the number of uncommitted files from git. The page is titled `<App> Design: <name>` and shows those facts where a PR map shows the PR's.
+
+- A design page has no changed files: leave out `modules` and `file-tiles` (`build.sh` reports them) and draw who talks to whom with `hub`.
+- Steps 3 to 7 apply as written, reading the design's own files in place of a diff. In step 2 the previous page is the app's last design page; rewrite the sections whose source files changed since its head.
+
 ## Rules
 
 - Everything shown must come from `files.json`, the code or the design docs on the branch. Don't invent classes, fields, paths, counts or links.
