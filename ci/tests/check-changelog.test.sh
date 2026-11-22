@@ -6,14 +6,16 @@
 set -uo pipefail
 
 CHECK="$(cd "$(dirname "$0")/.." && pwd)/check-changelog.sh"
-TMP="$(mktemp -d)"
+# No temp folder, no tests: with an empty $TMP every fixture command below
+# (git init, git config, git commit) would run in the caller's repo.
+TMP="$(mktemp -d "${TMPDIR:-/tmp}/check-changelog-test.XXXXXX")" || { echo "error: could not create a temp folder" >&2; exit 2; }
 trap 'rm -rf "$TMP"' EXIT
 passed=0
 failed=0
 
 # Base commit: skills alpha and beta, a docs folder, sync tooling, a CHANGELOG.
 new_repo() {
-  local repo; repo="$(mktemp -d "$TMP/repo.XXXXXX")"
+  local repo; repo="$(mktemp -d "$TMP/repo.XXXXXX")" || return 1
   (
     cd "$repo" || exit 1
     git init -q
@@ -72,7 +74,7 @@ fails() {
 
 errors() {
   local name="$1" args="$2" repo out
-  repo="$(new_repo)"
+  repo="$(new_repo)" || { echo "FAIL - $name (could not build fixture repo)"; failed=$((failed + 1)); return; }
   if out="$(cd "$repo" && eval "bash \"\$CHECK\" $args" 2>&1)"; then
     echo "FAIL - $name (expected an error)"; failed=$((failed + 1))
   else echo "ok   - $name"; passed=$((passed + 1)); fi

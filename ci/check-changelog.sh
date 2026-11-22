@@ -9,14 +9,14 @@
 # other than sync/tests/, or is the sync workflow. Renames count as a delete plus an
 # add, so moving a file out of a skill folder counts too.
 #
-# Exit status: 0 pass, 1 a line is missing, 2 bad arguments.
+# Exit status: 0 pass, 1 a line is missing, 2 bad arguments or no temp folder.
 set -euo pipefail
 
 [[ $# -eq 2 ]] || { echo "usage: $0 BASE HEAD" >&2; exit 2; }
 base="$(git rev-parse --verify --quiet "$1^{commit}")" || { echo "error: unknown revision '$1'" >&2; exit 2; }
 head="$(git rev-parse --verify --quiet "$2^{commit}")" || { echo "error: unknown revision '$2'" >&2; exit 2; }
 
-work="$(mktemp -d)"
+work="$(mktemp -d "${TMPDIR:-/tmp}/check-changelog.XXXXXX")" || { echo "error: could not create a temp folder" >&2; exit 2; }
 trap 'rm -rf "$work"' EXIT
 
 has_skill_file() {  # has_skill_file REVISION FOLDER
