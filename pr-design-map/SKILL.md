@@ -63,6 +63,7 @@ scripts/design-facts.sh <repo-dir> "<name>" files.json
 
 - **Step 1** is the script above. Its files.json has `design` facts, no `pr` and no files; `build.sh` refuses a mix of the two kinds.
 - **Step 2:** the previous page is the app's last design page. Compare the design's files themselves with what its sections show, because a design is often uncommitted and `git diff` against the previous head would miss it.
+- **Step 3:** read the design's own files, the ones a section is drawn from, in place of a diff. The `summary` says what this design or checkpoint decides.
 - **Step 4:** no `notes`. A section's `files` name the design files it was drawn from. `modules` draws the boxes and arrows without the changed-files grid (give no `layers`); `file-tiles` is left out of the page, and `build.sh` says so.
 - **Step 5:** `build.sh` needs `design.name` where a PR map needs the PR facts and files.
 - **Step 6:** the page is titled `<App> Design: <name>`, and shows the design's facts where a PR map shows the PR's.

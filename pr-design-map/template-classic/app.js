@@ -421,7 +421,7 @@
     'file-tiles': () => files().length ? groupedFileCards() : null,
     lifecycle: s => fig(lifecycleDiagram((s.states || []).map((st, i) => typeof st === 'string' ? { name: st, color: CYCLE[i % CYCLE.length] } : st), s.transitions), s.caption),
     proposal: s => [
-      h('div', { class: 'group-title' }, h('h3', {}, 'Current')), h('div', { class: 'cards stack' }, card({ ...s.current, color: s.current.color || 'gray' }, 0)),
+      s.current ? [h('div', { class: 'group-title' }, h('h3', {}, 'Current')), h('div', { class: 'cards stack' }, card({ ...s.current, color: s.current.color || 'gray' }, 0))] : null,   // a first decision has no current design
       ...(s.options || []).map((o, i) => [h('div', { class: 'group-title' }, h('h3', {}, `Option: ${o.title}`)), h('div', { class: 'cards stack' }, card(o, i + 1))]).flat(),
       s.comparison ? table(s.comparison) : null,
       s.decisions ? [h('div', { class: 'group-title' }, h('h3', {}, 'Decisions')), h('div', { class: 'cards' }, s.decisions.map((d, i) => card(d, i)))] : null,
@@ -468,9 +468,10 @@
       ['JSON', [h('code', { html: '<span style="color:var(--j-key)">"key"</span>' }), h('code', { html: '<span style="color:var(--j-str)">"text"</span>' }), h('code', { html: '<span style="color:var(--j-num)">42</span>' }), h('code', { html: '<span style="color:var(--j-null);font-style:italic">null</span>' }), h('code', { html: '<span style="color:var(--j-bad);font-weight:600">"unknown key"</span>' }), h('code', { html: '<span style="color:var(--c-teal);font-weight:600">TypeName</span>' })]],
       ['Links', [countPill(sample), h('span', { class: 'muted' }, 'lines in the file'), h('span', { class: 'pill', html: 'View file ↗' }), h('span', { class: 'pill', html: `View changes ${delta(sample)} ↗` }), h('span', { class: 'muted' }, 'added · removed in this PR')]],
     ];
-    if (M.legend) for (const k in M.legend) rows.push([k, M.legend[k].map((e, i) => sw(e.name, color(e.color, i)))]);
+    const shown = rows.filter(([k]) => !(DESIGN && PR_ONLY_KEY_ROWS.includes(k)));   // only the built-in rows; the map's own rows always show
+    if (M.legend) for (const k in M.legend) shown.push([k, M.legend[k].map((e, i) => sw(e.name, color(e.color, i)))]);
     const el = h('div', { class: 'legend' });
-    rows.filter(([k]) => !(DESIGN && PR_ONLY_KEY_ROWS.includes(k))).forEach(([k, v]) => el.append(h('div', { class: 'row' }, h('span', { class: 'lbl' }, k), v)));
+    shown.forEach(([k, v]) => el.append(h('div', { class: 'row' }, h('span', { class: 'lbl' }, k), v)));
     return el;
   }
 

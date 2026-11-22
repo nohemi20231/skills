@@ -12,7 +12,7 @@ dir=$1; name=$2; out=${3:-files.json}
 [ -n "${name//[[:space:]]/}" ] || { echo "a design page needs a name" >&2; exit 1; }
 [ -d "$dir" ] || { echo "no such directory: $dir" >&2; exit 1; }
 head=; branch=; uncommitted=0
-if git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+if [ "$(git -C "$dir" rev-parse --is-inside-work-tree 2>/dev/null)" = true ]; then   # not a bare repository or a .git folder
   head=$(git -C "$dir" rev-parse --verify -q HEAD || true)
   branch=$(git -C "$dir" branch --show-current)
   uncommitted=$(git -C "$dir" status --porcelain --untracked-files=all | wc -l | tr -d ' ')   # every file, not one line for a new folder

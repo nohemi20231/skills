@@ -457,7 +457,7 @@
     'file-tiles': () => files().length ? groupedFileTiles() : null,
     lifecycle: s => { const states = (s.states || []).map((st, i) => typeof st === 'string' ? { name: st, color: CYCLE[i % CYCLE.length] } : st); return fig(boxesDiagram(states, s.transitions), s.caption); },
     proposal: s => [
-      h('h3', {}, 'CURRENT'), h('div', { class: 'tiles stack' }, tile({ ...s.current, color: s.current.color || 'gray' }, 0)),
+      s.current ? [h('h3', {}, 'CURRENT'), h('div', { class: 'tiles stack' }, tile({ ...s.current, color: s.current.color || 'gray' }, 0))] : null,   // a first decision has no current design
       ...(s.options || []).map((o, i) => [h('h3', {}, `MODIFIED · ${o.title}`), h('div', { class: 'tiles stack' }, tile({ ...o, title: o.title }, i + 1))]).flat(),
       s.comparison ? table(s.comparison) : null,
       s.decisions ? h('div', { class: 'tiles' }, s.decisions.map(tile)) : null,
@@ -550,9 +550,10 @@
       ['Code', [h('span', { class: 'codekey', html: '<span class="kw">keyword</span> <span class="ty">Type</span> <span class="fn">call()</span> <span class="st">"string"</span> <span class="nm">42 →</span> <span class="cm"># comment</span>' })]],
       ['Links', [countPill(sample), h('span', { class: 'muted' }, 'lines in the file'), h('span', { class: 'pill', html: 'View file ↗' }), h('span', { class: 'pill', html: `View changes ${delta(sample)} ↗` }), h('span', { class: 'muted' }, 'added · removed in this PR')]],
     ];
-    if (M.legend) for (const k in M.legend) rows.push([k, M.legend[k].map((e, i) => sw(e.name, color(e.color, i), e.edge))]);
+    const shown = rows.filter(([k]) => !(DESIGN && PR_ONLY_KEY_ROWS.includes(k)));   // only the built-in rows; the map's own rows always show
+    if (M.legend) for (const k in M.legend) shown.push([k, M.legend[k].map((e, i) => sw(e.name, color(e.color, i), e.edge))]);
     const el = h('div', { class: 'legend' });
-    rows.filter(([k]) => !(DESIGN && PR_ONLY_KEY_ROWS.includes(k))).forEach(([k, v]) => el.append(h('div', { class: 'k' }, k), h('div', { class: 'v' }, v)));
+    shown.forEach(([k, v]) => el.append(h('div', { class: 'k' }, k), h('div', { class: 'v' }, v)));
     return el;
   }
 

@@ -49,7 +49,7 @@ Line numbers are 1-based. Added lines get a `+` gutter mark, a yellow left bar a
 | `code` | `code`, `edge` (color) | one code block |
 | `file-tiles` | none | one tile per file in `files`, grouped by module and layer, with line-count and link pills from `files.json`; `kind: "table"` notes go under "Tables and migrations". Then two lists, one row per file, folded at first with the count in the bar: "Tests" (a note with module or layer `tests`, a test folder such as `src/test/` or `tests/`, or a test file name such as `FooTest`, `FooIT`, `test_foo.py`, `foo.test.ts`) and "Other files" (every file without a note) |
 | `lifecycle` | `states: ["OPEN", ...]` or `[{name, color}]`, `transitions: [{from, to, label}]` | SVG state diagram |
-| `proposal` | `current: tile`, `options: [tile]`, `comparison: table`, `decisions: [tile]` | CURRENT first, each MODIFIED option stacked below, comparison table, decision tiles with the recommended one marked |
+| `proposal` | optional `current: tile`, `options: [tile]`, `comparison: table`, `decisions: [tile]` | CURRENT first (left out when there is no current design), each MODIFIED option stacked below, comparison table, decision tiles with the recommended one marked |
 
 Section `id` defaults to a slug of the title. Links, pills, highlights, the Key panel, the section picker and sidebar, the Settings panel and the Hide / Show diagram folds are generated; the map never carries HTML or styling.
 
