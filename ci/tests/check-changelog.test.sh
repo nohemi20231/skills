@@ -8,17 +8,25 @@ set -uo pipefail
 CHECK="$(cd "$(dirname "$0")/.." && pwd)/check-changelog.sh"
 # No temp folder, no tests: with an empty $TMP every fixture command below
 # (git init, git config, git commit) would run in the caller's repo.
-TMP="$(mktemp -d "${TMPDIR:-/tmp}/check-changelog-test.XXXXXX")" || { echo "error: could not create a temp folder" >&2; exit 2; }
+TMP="$(mktemp -d "${TMPDIR:-/tmp}/check-changelog-test.XXXXXX")" && [[ -d "$TMP" ]] \
+  || { echo "error: could not create a temp folder" >&2; exit 2; }
 trap 'rm -rf "$TMP"' EXIT
+# Fixture git commands must only ever find a fixture repo: forget a repo handed
+# down by a git hook (GIT_DIR, GIT_INDEX_FILE) and never look above $TMP for one.
+unset $(git rev-parse --local-env-vars)
+export GIT_CEILING_DIRECTORIES="$TMP"
 passed=0
 failed=0
+
+# No fixture, no tests: a test without its fixture repo proves nothing.
+no_fixture() { echo "error: could not build a fixture repo" >&2; exit 2; }
 
 # Base commit: skills alpha and beta, a docs folder, sync tooling, a CHANGELOG.
 new_repo() {
   local repo; repo="$(mktemp -d "$TMP/repo.XXXXXX")" || return 1
   (
     cd "$repo" || exit 1
-    git init -q
+    git init -q || exit 1
     git config user.email test@example.com
     git config user.name test
     mkdir -p alpha beta/references docs sync/scripts sync/tests .github/workflows
@@ -47,7 +55,7 @@ add_to_1_0_0() { awk -v line="$1" '{ print } /^## 1\.0\.0/ { print line }' CHANG
 # Sets $status and $output.
 run_change() {
   local change="$1" repo
-  repo="$(new_repo)" || { status=99; output="could not build fixture repo"; return; }
+  repo="$(new_repo)" || no_fixture
   output="$(cd "$repo" && eval "$change" && git add -A && git commit -qm change --allow-empty \
     && bash "$CHECK" HEAD^1 HEAD 2>&1)"
   status=$?
@@ -72,13 +80,20 @@ fails() {
   else echo "ok   - $name"; passed=$((passed + 1)); fi
 }
 
+# Bad input must exit 2: never 0 (a pass) and never 1 (a line is missing).
+# path: the PATH the check runs with, for a test that swaps in a failing command.
 errors() {
-  local name="$1" args="$2" repo out
-  repo="$(new_repo)" || { echo "FAIL - $name (could not build fixture repo)"; failed=$((failed + 1)); return; }
-  if out="$(cd "$repo" && eval "bash \"\$CHECK\" $args" 2>&1)"; then
-    echo "FAIL - $name (expected an error)"; failed=$((failed + 1))
-  else echo "ok   - $name"; passed=$((passed + 1)); fi
+  local name="$1" args="$2" path="${3:-$PATH}" repo exit_status
+  repo="$(new_repo)" || no_fixture
+  (cd "$repo" && PATH="$path" && eval "bash \"\$CHECK\" $args") >/dev/null 2>&1
+  exit_status=$?
+  if [[ $exit_status -eq 2 ]]; then echo "ok   - $name"; passed=$((passed + 1))
+  else echo "FAIL - $name (expected exit 2, got $exit_status)"; failed=$((failed + 1)); fi
 }
+
+# A folder whose mktemp always fails, to put first on a PATH.
+NO_MKTEMP="$TMP/no-mktemp"
+mkdir "$NO_MKTEMP" && printf '#!/bin/sh\nexit 1\n' > "$NO_MKTEMP/mktemp" && chmod +x "$NO_MKTEMP/mktemp" || no_fixture
 
 # --- changes that need no line ---
 passes "no changes" ':'
@@ -134,6 +149,7 @@ alpha/SKILL.md'
 # --- bad input is an error, never a pass ---
 errors "unknown base revision" 'no-such-rev HEAD'
 errors "missing arguments" ''
+errors "no temp folder can be made" 'HEAD HEAD' "$NO_MKTEMP:$PATH"
 
 echo
 echo "$passed passed, $failed failed"
