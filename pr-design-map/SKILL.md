@@ -12,9 +12,9 @@ The page is a fixed template plus data. You write **map.json** only. Git writes 
 ```
 template/          index.html, style.css, app.js, fonts/   the default look (Lexend, Slate and three more backgrounds, sticky sidebar or top bar, diagrams that fold behind Hide / Show); never edited per PR
 template-classic/  index.html, style.css, app.js, fonts/   the first look (IBM Plex, light and dark, numbered sections, layered columns, cards)
-scripts/           pr-files.sh  build.sh  shoot.sh  extract-map.sh   git facts, assembly, screenshots, map.json back out of a page
+scripts/           pr-files.sh  design-facts.sh  build.sh  shoot.sh  extract-map.sh   git facts for a PR or for a design page, assembly, screenshots, map.json back out of a page
 reference/         map-schema.md  style-rules.md           what map.json may contain; what the templates enforce
-example/           files.json  map.json                    a complete worked example, renders in both templates
+example/           files.json  design-files.json  map.json   a complete worked example, renders in both templates; design-files.json builds it as a design page
 ```
 
 Both templates render the same map.json. The default is `template/`; `"template": "classic"` in map.json (or `build.sh -t classic`) picks the other. Keep the template an app's previous map used unless the user asks for the other one.
@@ -53,16 +53,20 @@ Both templates render the same map.json. The default is `template/`; `"template"
 
 ## Design page (no PR yet)
 
-For a design that has no pull request yet (a design proposal, a Blueprint checkpoint), build a design page. It uses the same template and the same map.json; only the facts differ:
+For a design that has no pull request yet (a design proposal, a Blueprint checkpoint), build a design page. It uses the same templates and the same map.json; the facts differ:
 
 ```
 scripts/design-facts.sh <repo-dir> "<name>" files.json
 ```
 
-`<name>` is what the page is called, for example "Checkpoint 2, service map". The script takes the branch, the head commit and the number of uncommitted files from git. The page is titled `<App> Design: <name>` and shows those facts where a PR map shows the PR's.
+`<name>` is what the page is called, for example "Checkpoint 2, service map". The script takes the branch, the head commit and the number of uncommitted files from git; write files.json outside the repository. The steps above apply with these differences:
 
-- A design page has no changed files: leave out `modules` and `file-tiles` (`build.sh` reports them) and draw who talks to whom with `hub`.
-- Steps 3 to 7 apply as written, reading the design's own files in place of a diff. In step 2 the previous page is the app's last design page; rewrite the sections whose source files changed since its head.
+- **Step 1** is the script above. Its files.json has `design` facts, no `pr` and no files; `build.sh` refuses a mix of the two kinds.
+- **Step 2:** the previous page is the app's last design page. Compare the design's files themselves with what its sections show, because a design is often uncommitted and `git diff` against the previous head would miss it.
+- **Step 3:** read the design's own files, the ones a section is drawn from, in place of a diff. The `summary` says what this design or checkpoint decides.
+- **Step 4:** no `notes`. A section's `files` name the design files it was drawn from. `modules` draws the boxes and arrows without the changed-files grid (give no `layers`); `file-tiles` is left out of the page, and `build.sh` says so.
+- **Step 5:** `build.sh` needs `design.name` where a PR map needs the PR facts and files.
+- **Step 6:** the page is titled `<App> Design: <name>`, and shows the design's facts where a PR map shows the PR's.
 
 ## Rules
 
