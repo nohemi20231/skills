@@ -1,0 +1,134 @@
+{
+  "pr": {
+    "number": 7,
+    "url": "https://github.com/example/corner-bakery/pull/7",
+    "owner": "example",
+    "repo": "corner-bakery",
+    "branch": "feature/cancel-order",
+    "head": "d6a22e21fe674d0e1b74053be7b289ac2dba8bf9",
+    "base": "main",
+    "date": "2026-11-09"
+  },
+  "files": [
+    {
+      "path": "README.md",
+      "status": "modified",
+      "added": 3,
+      "removed": 1,
+      "lines": 7,
+      "anchor": "b335630551682c19a781afebcf4d07bf978fb1f8ac04c6bf87428ed5106870f5"
+    },
+    {
+      "path": "docs/orders.md",
+      "status": "added",
+      "added": 10,
+      "removed": 0,
+      "lines": 10,
+      "anchor": "e62f20e7324d81a338cb1cde7c3d4dd10aaf207fd726ea6b3500f89e6fddb718"
+    },
+    {
+      "path": "src/main/java/bakery/api/OrderController.java",
+      "status": "modified",
+      "added": 9,
+      "removed": 0,
+      "lines": 46,
+      "anchor": "1ed2523a8e3c9b1f3f1a8bb36fb70174bdfb0e029ada4848cdf6d902e805830c"
+    },
+    {
+      "path": "src/main/java/bakery/api/dto/CancelRequest.java",
+      "status": "added",
+      "added": 4,
+      "removed": 0,
+      "lines": 4,
+      "anchor": "c75d34dc44682549b3512a6d5faa1ec3a3439bc2477990a0181ab1c5f7f9e7c8"
+    },
+    {
+      "path": "src/main/java/bakery/orders/CancelReason.java",
+      "status": "added",
+      "added": 7,
+      "removed": 0,
+      "lines": 7,
+      "anchor": "e091faf4ef2138aea1aa29e80ac0abee58f670486c3f7e2a307b73203579296d"
+    },
+    {
+      "path": "src/main/java/bakery/orders/Order.java",
+      "status": "modified",
+      "added": 9,
+      "removed": 2,
+      "lines": 24,
+      "anchor": "d2d8e36f50dfe9d96fe33e97e8472c82ebc62de32046fe727f80d8e4b9eb9954"
+    },
+    {
+      "path": "src/main/java/bakery/orders/OrderService.java",
+      "status": "modified",
+      "added": 15,
+      "removed": 1,
+      "lines": 65,
+      "anchor": "0390af1bb37e46c72dba4c77c3edec12090f2194e85834287417bf2c9aaacb82"
+    },
+    {
+      "path": "src/main/java/bakery/orders/OrderStatus.java",
+      "status": "modified",
+      "added": 2,
+      "removed": 1,
+      "lines": 8,
+      "anchor": "40eab05b3ce74dcdfbd97a86f27871acfb213c7401195cbb6b93b3f67057abf0"
+    },
+    {
+      "path": "src/main/java/bakery/orders/command/CancelOrder.java",
+      "status": "added",
+      "added": 6,
+      "removed": 0,
+      "lines": 6,
+      "anchor": "a8b7420504a92cd4b8ead9773be8f078a58900374a2179d8e5306fe31faefc8e"
+    },
+    {
+      "path": "src/main/java/bakery/orders/command/OrderCommand.java",
+      "status": "modified",
+      "added": 1,
+      "removed": 1,
+      "lines": 4,
+      "anchor": "96c537d6d73bfc3d85ff8b5c74c65ebe4b1606cced5d71b8764a54cd5dc91bc8"
+    },
+    {
+      "path": "src/main/java/bakery/storage/JdbcOrderRepository.java",
+      "status": "modified",
+      "added": 13,
+      "removed": 5,
+      "lines": 56,
+      "anchor": "f01f7fd5461887ab21cf76ee7ebbba70ad15f550b9c4636726cddb3331215928"
+    },
+    {
+      "path": "src/main/resources/db/migration/V2__order_cancellation.sql",
+      "status": "added",
+      "added": 3,
+      "removed": 0,
+      "lines": 3,
+      "anchor": "13712bf0f73ddb5944586db59d2419e826d5970020a5716727830d5926826e17"
+    },
+    {
+      "path": "src/test/java/bakery/api/OrderControllerIT.java",
+      "status": "added",
+      "added": 41,
+      "removed": 0,
+      "lines": 41,
+      "anchor": "3586ac68150b301b91459b9c010eaa769edf225b35492b3394199ff9eedf9374"
+    },
+    {
+      "path": "src/test/java/bakery/orders/OrderServiceCancelTest.java",
+      "status": "added",
+      "added": 64,
+      "removed": 0,
+      "lines": 64,
+      "anchor": "2f0d699e12cf6bfc1a73768bebfa269ce5149fd9e46359fecdcbc46e83a992d0"
+    },
+    {
+      "path": "src/test/java/bakery/orders/OrderServiceTest.java",
+      "status": "modified",
+      "added": 2,
+      "removed": 0,
+      "lines": 49,
+      "anchor": "cb6571b4d718820768db1ad8eb6019b84767da856b8219c32f8a4507b837c3d5"
+    }
+  ]
+}

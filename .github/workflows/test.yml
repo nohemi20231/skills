@@ -26,3 +26,9 @@ jobs:
 
       - name: sync/targets.yml is valid
         run: bash sync/scripts/targets-matrix.sh sync/targets.yml
+
+      - name: Copilot plugin check tests
+        run: bash ci/tests/check-copilot-plugins.test.sh
+
+      - name: Every skill is a Copilot plugin
+        run: bash ci/check-copilot-plugins.sh

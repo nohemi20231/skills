@@ -1,0 +1,922 @@
+{
+  "app": "Corner Bakery",
+  "updated": "21 Nov 2026 · 8:21 PM CT",
+  "session": {
+    "url": "https://example.com/mock-session",
+    "name": "mock session"
+  },
+  "summary": [
+    "Cancelling now **refunds**: all of it while PLACED, half once READY",
+    "New sealed RefundPolicy with FullRefund, HalfRefund and NoRefund",
+    "RefundCalculator picks the policy from the OrderStatus before the cancel",
+    "New **payments** module: PaymentGateway issues a Refund",
+    "Order keeps refundCents; migration V3 adds the column and a **refunds** table"
+  ],
+  "modules": [
+    {
+      "name": "api",
+      "color": "pink"
+    },
+    {
+      "name": "orders",
+      "color": "blue"
+    },
+    {
+      "name": "pricing",
+      "color": "purple"
+    },
+    {
+      "name": "payments",
+      "color": "orange"
+    },
+    {
+      "name": "storage",
+      "color": "green"
+    },
+    {
+      "name": "db",
+      "color": "brown"
+    }
+  ],
+  "layers": [
+    "handler",
+    "command",
+    "model",
+    "service",
+    "repository",
+    "schema"
+  ],
+  "legend": {
+    "Commands": [
+      {
+        "name": "ready",
+        "color": "green"
+      },
+      {
+        "name": "pick up",
+        "color": "purple"
+      },
+      {
+        "name": "cancel",
+        "color": "red"
+      }
+    ]
+  },
+  "notes": {
+    "src/main/java/bakery/orders/Order.java": {
+      "module": "orders",
+      "layer": "model",
+      "kind": "record",
+      "class": "Order",
+      "change": "keeps refundCents",
+      "lines": [
+        "refundCents is **0** until the order is cancelled"
+      ],
+      "code": {
+        "lang": "java",
+        "changed": [
+          9,
+          13,
+          14
+        ],
+        "added": [
+          10
+        ],
+        "text": "public record Order(\n        String id,\n        String customer,\n        List<String> items,\n        int totalCents,\n        OrderStatus status,\n        Instant placedAt,\n        CancelReason cancelReason,\n        Instant cancelledAt,\n        int refundCents) {\n\n    // a cancelled order keeps why, when and how much went back\n    public Order cancelled(CancelReason reason, Instant at, int refundedCents) {\n        return new Order(id, customer, items, totalCents, OrderStatus.CANCELLED, placedAt, reason, at, refundedCents);\n    }\n}"
+      }
+    },
+    "src/main/java/bakery/orders/OrderService.java": {
+      "module": "orders",
+      "layer": "service",
+      "class": "OrderService",
+      "change": "refunds on cancel",
+      "lines": [
+        "The gateway is called only when there is something to give back"
+      ],
+      "code": {
+        "lang": "java",
+        "added": [
+          9,
+          10,
+          11,
+          12,
+          13,
+          14
+        ],
+        "changed": [
+          16
+        ],
+        "text": "private Order cancel(CancelOrder command) {\n    Order order = find(command.orderId());\n\n    // only an order still in the shop can be cancelled\n    if (order.status() == OrderStatus.PICKED_UP || order.status() == OrderStatus.CANCELLED) {\n        throw new IllegalTransition(order.id(), order.status(), OrderStatus.CANCELLED);\n    }\n\n    // how much goes back depends on how far the order got\n    int refundCents = refunds.refundCents(order);\n    if (refundCents > 0) {\n        payments.refund(order.id(), refundCents);\n    }\n\n    // the order remembers what was refunded\n    Order cancelled = order.cancelled(command.reason(), clock.instant(), refundCents);\n    return repository.save(cancelled);\n}"
+      }
+    },
+    "src/main/java/bakery/payments/PaymentGateway.java": {
+      "module": "payments",
+      "layer": "service",
+      "kind": "interface",
+      "class": "PaymentGateway",
+      "change": "new port",
+      "code": {
+        "lang": "java",
+        "added": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "text": "public interface PaymentGateway {\n\n    Refund refund(String orderId, int cents);\n}"
+      }
+    },
+    "src/main/java/bakery/payments/Refund.java": {
+      "module": "payments",
+      "layer": "model",
+      "kind": "record",
+      "class": "Refund",
+      "change": "new record",
+      "code": {
+        "lang": "java",
+        "added": [
+          1,
+          2
+        ],
+        "text": "public record Refund(String id, String orderId, int cents, Instant issuedAt) {\n}"
+      }
+    },
+    "src/main/java/bakery/pricing/RefundPolicy.java": {
+      "module": "pricing",
+      "layer": "model",
+      "kind": "interface",
+      "class": "RefundPolicy",
+      "change": "new sealed type",
+      "code": {
+        "lang": "java",
+        "added": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "text": "public sealed interface RefundPolicy permits FullRefund, HalfRefund, NoRefund {\n\n    int refundCents(int totalCents);\n}"
+      }
+    },
+    "src/main/java/bakery/pricing/FullRefund.java": {
+      "module": "pricing",
+      "layer": "model",
+      "kind": "record",
+      "class": "FullRefund",
+      "change": "all of it back"
+    },
+    "src/main/java/bakery/pricing/HalfRefund.java": {
+      "module": "pricing",
+      "layer": "model",
+      "kind": "record",
+      "class": "HalfRefund",
+      "change": "half back"
+    },
+    "src/main/java/bakery/pricing/NoRefund.java": {
+      "module": "pricing",
+      "layer": "model",
+      "kind": "record",
+      "class": "NoRefund",
+      "change": "nothing back"
+    },
+    "src/main/java/bakery/pricing/RefundCalculator.java": {
+      "module": "pricing",
+      "layer": "service",
+      "kind": "helper",
+      "class": "RefundCalculator",
+      "change": "picks the policy",
+      "lines": [
+        "Reads the **OrderStatus** the order had before the cancel"
+      ],
+      "code": {
+        "lang": "java",
+        "added": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ],
+        "text": "public class RefundCalculator {\n\n    // nothing baked yet: all of it back. Already baked: half. Otherwise nothing.\n    public RefundPolicy policyFor(OrderStatus statusBeforeCancel) {\n        return switch (statusBeforeCancel) {\n            case PLACED -> new FullRefund();\n            case READY -> new HalfRefund();\n            case PICKED_UP, CANCELLED -> new NoRefund();\n        };\n    }\n\n    public int refundCents(Order order) {\n        RefundPolicy policy = policyFor(order.status());\n        return policy.refundCents(order.totalCents());\n    }\n}"
+      }
+    },
+    "src/main/java/bakery/storage/JdbcOrderRepository.java": {
+      "module": "storage",
+      "layer": "repository",
+      "class": "JdbcOrderRepository",
+      "change": "writes refund_cents",
+      "code": {
+        "lang": "sql",
+        "changed": [
+          1,
+          2,
+          6
+        ],
+        "added": [
+          7
+        ],
+        "text": "INSERT INTO orders (id, customer, items, total_cents, status, placed_at, cancel_reason, cancelled_at, refund_cents)\nVALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)\nON CONFLICT (id) DO UPDATE SET\n    status = EXCLUDED.status,\n    cancel_reason = EXCLUDED.cancel_reason,\n    cancelled_at = EXCLUDED.cancelled_at,\n    refund_cents = EXCLUDED.refund_cents"
+      }
+    },
+    "src/main/resources/db/migration/V3__order_refunds.sql": {
+      "module": "db",
+      "layer": "schema",
+      "kind": "table",
+      "class": "orders, refunds",
+      "change": "refund column, new table",
+      "code": {
+        "lang": "sql",
+        "added": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "text": "ALTER TABLE orders\n    ADD COLUMN refund_cents INTEGER NOT NULL DEFAULT 0;\n\nCREATE TABLE refunds (\n    id        TEXT PRIMARY KEY,\n    order_id  TEXT NOT NULL REFERENCES orders (id),\n    cents     INTEGER NOT NULL,\n    issued_at TIMESTAMP NOT NULL\n);"
+      }
+    },
+    "src/test/java/bakery/api/OrderControllerIT.java": {
+      "change": "refund in the response"
+    },
+    "src/test/java/bakery/orders/OrderServiceCancelTest.java": {
+      "change": "full, half, none"
+    },
+    "src/test/java/bakery/orders/OrderServiceTest.java": {
+      "change": "refund starts at 0"
+    },
+    "src/test/java/bakery/pricing/RefundCalculatorTest.java": {
+      "change": "one case per status"
+    },
+    "src/test/java/bakery/support/RecordingPaymentGateway.java": {
+      "change": "records each refund"
+    }
+  },
+  "sections": [
+    {
+      "type": "sequence",
+      "title": "Cancel with a refund",
+      "files": [
+        "src/main/java/bakery/orders/OrderService.java",
+        "src/main/java/bakery/pricing/RefundCalculator.java",
+        "src/main/java/bakery/payments/PaymentGateway.java"
+      ],
+      "actors": [
+        {
+          "name": "Customer",
+          "color": "gray"
+        },
+        {
+          "name": "api",
+          "sub": "OrderController",
+          "color": "pink"
+        },
+        {
+          "name": "orders",
+          "sub": "OrderService",
+          "color": "blue"
+        },
+        {
+          "name": "pricing",
+          "sub": "RefundCalculator",
+          "color": "purple"
+        },
+        {
+          "name": "payments",
+          "sub": "PaymentGateway",
+          "color": "orange"
+        },
+        {
+          "name": "storage",
+          "sub": "OrderRepository",
+          "color": "green"
+        }
+      ],
+      "steps": [
+        {
+          "from": "Customer",
+          "to": "api",
+          "label": "DELETE",
+          "value": "/orders/B4f2a1c"
+        },
+        {
+          "from": "api",
+          "to": "orders",
+          "label": "handle",
+          "value": "CancelOrder(B4f2a1c, SHOP_CLOSED)"
+        },
+        {
+          "from": "orders",
+          "to": "storage",
+          "label": "findById",
+          "value": "B4f2a1c"
+        },
+        {
+          "from": "storage",
+          "to": "orders",
+          "label": "Order",
+          "value": "status READY, totalCents 770",
+          "reply": true
+        },
+        {
+          "from": "orders",
+          "to": "pricing",
+          "label": "refundCents",
+          "value": "Order"
+        },
+        {
+          "from": "pricing",
+          "to": "orders",
+          "label": "385",
+          "value": "HalfRefund",
+          "reply": true
+        },
+        {
+          "from": "orders",
+          "to": "payments",
+          "label": "refund",
+          "value": "B4f2a1c, 385"
+        },
+        {
+          "from": "payments",
+          "to": "orders",
+          "label": "Refund",
+          "value": "R1",
+          "reply": true
+        },
+        {
+          "from": "orders",
+          "to": "storage",
+          "label": "save",
+          "value": "CANCELLED, refundCents 385"
+        },
+        {
+          "from": "orders",
+          "to": "api",
+          "label": "Order",
+          "value": "status CANCELLED",
+          "reply": true
+        },
+        {
+          "from": "api",
+          "to": "Customer",
+          "label": "200",
+          "value": "refundCents 385",
+          "reply": true
+        }
+      ]
+    },
+    {
+      "type": "json",
+      "title": "The JSON",
+      "files": [
+        "src/main/java/bakery/orders/Order.java",
+        "src/main/java/bakery/payments/Refund.java",
+        "src/main/resources/db/migration/V3__order_refunds.sql"
+      ],
+      "items": [
+        {
+          "title": "Order after cancel",
+          "color": "blue",
+          "value": {
+            "id": "B4f2a1c",
+            "customer": "Ana",
+            "items": [
+              "croissant",
+              "baguette"
+            ],
+            "totalCents": 770,
+            "status": "CANCELLED",
+            "placedAt": "2026-11-17T15:02:11Z",
+            "cancelReason": "SHOP_CLOSED",
+            "cancelledAt": "2026-11-17T15:40:03Z",
+            "refundCents": 385
+          }
+        },
+        {
+          "title": "Refund",
+          "color": "orange",
+          "value": {
+            "id": "R1",
+            "orderId": "B4f2a1c",
+            "cents": 385,
+            "issuedAt": "2026-11-17T15:40:03Z"
+          }
+        },
+        {
+          "title": "refunds row",
+          "color": "brown",
+          "value": {
+            "id": "R1",
+            "order_id": "B4f2a1c",
+            "cents": 385,
+            "issued_at": "2026-11-17 15:40:03",
+            "gateway_ref": "?"
+          },
+          "unknown": [
+            "gateway_ref"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "modules",
+      "title": "Modules and layers",
+      "files": [
+        "src/main/java/bakery/orders/OrderService.java",
+        "src/main/java/bakery/pricing/RefundCalculator.java",
+        "src/main/java/bakery/payments/PaymentGateway.java",
+        "src/main/java/bakery/storage/JdbcOrderRepository.java"
+      ],
+      "edges": [
+        {
+          "from": "api",
+          "to": "orders",
+          "label": "handle"
+        },
+        {
+          "from": "orders",
+          "to": "pricing",
+          "label": "refundCents"
+        },
+        {
+          "from": "orders",
+          "to": "payments",
+          "label": "refund"
+        },
+        {
+          "from": "orders",
+          "to": "storage",
+          "label": "save"
+        },
+        {
+          "from": "storage",
+          "to": "db",
+          "label": "UPSERT"
+        }
+      ],
+      "table": {
+        "columns": [
+          "Caller",
+          "Callee",
+          "What"
+        ],
+        "rows": [
+          [
+            "api",
+            "orders",
+            "OrderService.handle(OrderCommand), OrderService.find(orderId)"
+          ],
+          [
+            "orders",
+            "pricing",
+            "PriceList.totalCents(items), RefundCalculator.refundCents(order)"
+          ],
+          [
+            "orders",
+            "payments",
+            "PaymentGateway.refund(orderId, cents)"
+          ],
+          [
+            "orders",
+            "storage",
+            "OrderRepository.save(order), OrderRepository.findById(orderId)"
+          ],
+          [
+            "pricing",
+            "orders",
+            "reads Order and OrderStatus"
+          ],
+          [
+            "storage",
+            "db",
+            "INSERT INTO orders … ON CONFLICT DO UPDATE"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "tree",
+      "title": "Type hierarchy",
+      "files": [
+        "src/main/java/bakery/pricing/RefundPolicy.java",
+        "src/main/java/bakery/pricing/FullRefund.java",
+        "src/main/java/bakery/pricing/HalfRefund.java",
+        "src/main/java/bakery/pricing/NoRefund.java",
+        "src/main/java/bakery/payments/PaymentGateway.java"
+      ],
+      "roots": [
+        {
+          "name": "RefundPolicy",
+          "sub": "NEW",
+          "color": "gold",
+          "tag": "pricing",
+          "children": [
+            {
+              "name": "FullRefund",
+              "sub": "NEW"
+            },
+            {
+              "name": "HalfRefund",
+              "sub": "NEW"
+            },
+            {
+              "name": "NoRefund",
+              "sub": "NEW"
+            }
+          ]
+        },
+        {
+          "name": "OrderCommand",
+          "color": "blue",
+          "tag": "orders.command",
+          "children": [
+            {
+              "name": "PlaceOrder"
+            },
+            {
+              "name": "MarkReady"
+            },
+            {
+              "name": "PickUp"
+            },
+            {
+              "name": "CancelOrder"
+            }
+          ]
+        },
+        {
+          "name": "OrderStatus",
+          "color": "blue",
+          "tag": "orders",
+          "children": [
+            {
+              "name": "PLACED"
+            },
+            {
+              "name": "READY"
+            },
+            {
+              "name": "PICKED_UP"
+            },
+            {
+              "name": "CANCELLED"
+            }
+          ]
+        },
+        {
+          "name": "CancelReason",
+          "color": "blue",
+          "tag": "orders",
+          "children": [
+            {
+              "name": "CUSTOMER_REQUEST"
+            },
+            {
+              "name": "OUT_OF_STOCK"
+            },
+            {
+              "name": "SHOP_CLOSED"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Refund by status",
+      "files": [
+        "src/main/java/bakery/pricing/RefundCalculator.java",
+        "src/main/java/bakery/orders/OrderService.java"
+      ],
+      "columns": [
+        "Cancelled while",
+        "Policy",
+        "Refund",
+        "Gateway called"
+      ],
+      "rows": [
+        [
+          "PLACED",
+          "FullRefund",
+          "all of it",
+          "✓"
+        ],
+        [
+          "READY",
+          "HalfRefund",
+          "half, rounded down",
+          "✓"
+        ],
+        [
+          "PICKED_UP",
+          "IllegalTransition",
+          "none",
+          "✗"
+        ],
+        [
+          "CANCELLED",
+          "IllegalTransition",
+          "none",
+          "✗"
+        ]
+      ]
+    },
+    {
+      "type": "tiles",
+      "title": "Refund policies",
+      "files": [
+        "src/main/java/bakery/pricing/FullRefund.java",
+        "src/main/java/bakery/pricing/HalfRefund.java",
+        "src/main/java/bakery/pricing/NoRefund.java"
+      ],
+      "items": [
+        {
+          "title": "FullRefund",
+          "chip": "record",
+          "color": "green",
+          "lines": [
+            "Cancelled while **PLACED**",
+            "Returns totalCents"
+          ]
+        },
+        {
+          "title": "HalfRefund",
+          "chip": "record",
+          "color": "orange",
+          "lines": [
+            "Cancelled while **READY**",
+            "Returns totalCents / 2"
+          ]
+        },
+        {
+          "title": "NoRefund",
+          "chip": "record",
+          "color": "red",
+          "lines": [
+            "Never reached today: PICKED_UP and CANCELLED throw first",
+            "Returns 0"
+          ]
+        },
+        {
+          "title": "Refund",
+          "chip": "record",
+          "color": "orange",
+          "json": {
+            "id": "R1",
+            "orderId": "B4f2a1c",
+            "cents": 385,
+            "issuedAt": "2026-11-17T15:40:03Z"
+          }
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "title": "The policy choice",
+      "files": [
+        "src/main/java/bakery/pricing/RefundCalculator.java"
+      ],
+      "edge": "purple",
+      "code": {
+        "lang": "java",
+        "added": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "text": "// nothing baked yet: all of it back. Already baked: half. Otherwise nothing.\npublic RefundPolicy policyFor(OrderStatus statusBeforeCancel) {\n    return switch (statusBeforeCancel) {\n        case PLACED -> new FullRefund();\n        case READY -> new HalfRefund();\n        case PICKED_UP, CANCELLED -> new NoRefund();\n    };\n}"
+      }
+    },
+    {
+      "type": "table",
+      "title": "Result matrix",
+      "columns": [
+        "Status before",
+        "ready",
+        "pick up",
+        "cancel"
+      ],
+      "colors": [
+        "gray",
+        "green",
+        "purple",
+        "red"
+      ],
+      "rows": [
+        [
+          "PLACED",
+          "✓",
+          "✗",
+          "✓"
+        ],
+        [
+          "READY",
+          "✗",
+          "✓",
+          "✓"
+        ],
+        [
+          "PICKED_UP",
+          "✗",
+          "✗",
+          "✗"
+        ],
+        [
+          "CANCELLED",
+          "✗",
+          "✗",
+          "✗"
+        ]
+      ],
+      "files": [
+        "src/main/java/bakery/orders/OrderService.java"
+      ]
+    },
+    {
+      "type": "file-tiles",
+      "title": "Classes"
+    },
+    {
+      "type": "lifecycle",
+      "title": "Order lifecycle",
+      "states": [
+        {
+          "name": "PLACED",
+          "color": "blue"
+        },
+        {
+          "name": "READY",
+          "color": "green"
+        },
+        {
+          "name": "PICKED_UP",
+          "color": "purple"
+        },
+        {
+          "name": "CANCELLED",
+          "color": "red"
+        }
+      ],
+      "transitions": [
+        {
+          "from": "PLACED",
+          "to": "READY",
+          "label": "ready"
+        },
+        {
+          "from": "READY",
+          "to": "PICKED_UP",
+          "label": "pick up"
+        },
+        {
+          "from": "PLACED",
+          "to": "CANCELLED",
+          "label": "cancel"
+        },
+        {
+          "from": "READY",
+          "to": "CANCELLED",
+          "label": "cancel"
+        }
+      ],
+      "files": [
+        "src/main/java/bakery/orders/OrderService.java"
+      ]
+    },
+    {
+      "type": "proposal",
+      "title": "Proposed changes",
+      "files": [
+        "src/main/java/bakery/pricing/RefundCalculator.java"
+      ],
+      "current": {
+        "title": "pricing reads OrderStatus",
+        "lines": [
+          "RefundCalculator switches on **OrderStatus**",
+          "pricing imports orders, and orders imports pricing"
+        ],
+        "code": {
+          "lang": "java",
+          "text": "import bakery.orders.Order;\nimport bakery.orders.OrderStatus;\n\npublic RefundPolicy policyFor(OrderStatus statusBeforeCancel) {\n    return switch (statusBeforeCancel) {\n        case PLACED -> new FullRefund();\n        case READY -> new HalfRefund();\n        case PICKED_UP, CANCELLED -> new NoRefund();\n    };\n}"
+        }
+      },
+      "options": [
+        {
+          "title": "O1 RefundStage owned by pricing",
+          "color": "green",
+          "lines": [
+            "New enum RefundStage in pricing: NOT_BAKED, BAKED, GONE",
+            "OrderService maps its OrderStatus to a RefundStage"
+          ],
+          "code": {
+            "lang": "java",
+            "added": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "changed": [
+              7,
+              8,
+              9,
+              10,
+              11
+            ],
+            "text": "public enum RefundStage {\n    NOT_BAKED,\n    BAKED,\n    GONE\n}\n\npublic RefundPolicy policyFor(RefundStage stage) {\n    return switch (stage) {\n        case NOT_BAKED -> new FullRefund();\n        case BAKED -> new HalfRefund();\n        case GONE -> new NoRefund();\n    };\n}"
+          }
+        },
+        {
+          "title": "O2 the status carries its policy",
+          "color": "purple",
+          "lines": [
+            "OrderStatus holds a RefundPolicy",
+            "RefundCalculator goes away"
+          ],
+          "code": {
+            "lang": "java",
+            "changed": [
+              2,
+              3,
+              4,
+              5
+            ],
+            "added": [
+              7,
+              8,
+              9,
+              10,
+              11
+            ],
+            "text": "public enum OrderStatus {\n    PLACED(new FullRefund()),\n    READY(new HalfRefund()),\n    PICKED_UP(new NoRefund()),\n    CANCELLED(new NoRefund());\n\n    private final RefundPolicy refundPolicy;\n\n    OrderStatus(RefundPolicy refundPolicy) {\n        this.refundPolicy = refundPolicy;\n    }\n}"
+          }
+        }
+      ],
+      "comparison": {
+        "columns": [
+          "Option",
+          "No import cycle",
+          "No new type",
+          "Refund rules stay in pricing"
+        ],
+        "rows": [
+          [
+            "current",
+            "✗",
+            "✓",
+            "✓"
+          ],
+          [
+            "O1",
+            "✓",
+            "✗",
+            "✓"
+          ],
+          [
+            "O2",
+            "✓",
+            "✓",
+            "✗"
+          ]
+        ]
+      },
+      "decisions": [
+        {
+          "title": "D1 RefundStage in pricing",
+          "recommended": true,
+          "lines": [
+            "Pick **O1**",
+            "No code change until approved"
+          ]
+        },
+        {
+          "title": "D2 leave it",
+          "lines": [
+            "Keep the cycle until a third module needs pricing"
+          ]
+        }
+      ]
+    }
+  ]
+}
