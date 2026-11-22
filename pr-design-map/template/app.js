@@ -36,6 +36,12 @@
   const prUrl = () => M.pr.url || `${repo()}/pull/${M.pr.number}`;
   const fileUrl = f => `${repo()}/blob/${M.pr.head}/${f.path}`;
   const diffUrl = f => `${prUrl()}/files#diff-${f.anchor}`;
+  /* A design page shows a design that has no pull request yet: files.json carries `design` facts in place of `pr`, and no changed files. */
+  const DESIGN = M.design || null;
+  const pageTitle = () => DESIGN ? `${M.app} Design: ${DESIGN.name}` : `${M.app} Design Map: PR #${M.pr.number}`;
+  const pageTag = () => DESIGN ? DESIGN.name : `PR #${M.pr.number}`;
+  const headSha = () => String((DESIGN || M.pr).head || '');
+  const headText = () => (headSha() ? headSha().slice(0, 7) : 'not committed') + (DESIGN && DESIGN.uncommitted ? ` · ${DESIGN.uncommitted} uncommitted` : '');
   const pill = (href, html) => h('a', { class: 'pill', href, target: '_blank', rel: 'noopener', html: html + ' ↗' });
   const delta = f => `<span class="add">+${f.added}</span> <span class="del">−${f.removed}</span>`;
   const countPill = f => h('span', { class: 'count' }, `${f.lines} lines`);
@@ -438,13 +444,13 @@
   const RENDER = {
     sequence: s => [fig(sequenceDiagram(s), s.caption), s.table ? table(s.table) : null],
     json: s => h('div', { class: 'tiles' + (s.stack ? ' stack' : '') }, (s.items || []).map((it, i) => tile({ title: it.title, json: it.value, unknown: it.unknown, lines: it.lines, color: it.color }, i))),
-    modules: s => [fig(boxesDiagram(M.modules || [], s.edges), s.caption), s.table ? table(s.table) : null, h('h3', {}, 'New and modified in this PR'), filesGrid()],
+    modules: s => [fig(boxesDiagram(M.modules || [], s.edges), s.caption), s.table ? table(s.table) : null, files().length ? [h('h3', {}, 'New and modified in this PR'), filesGrid()] : null],
     hub: s => [fig(hubDiagram(s), s.caption), s.table ? table(s.table) : null],
     tree: s => fig(treeDiagram(s.roots || []), s.caption),
     table: s => table(s),
     tiles: s => h('div', { class: 'tiles' + (s.stack ? ' stack' : '') }, (s.items || []).map(tile)),
     code: s => codeBlock(s.code, s.edge),
-    'file-tiles': () => groupedFileTiles(),
+    'file-tiles': () => files().length ? groupedFileTiles() : null,
     lifecycle: s => { const states = (s.states || []).map((st, i) => typeof st === 'string' ? { name: st, color: CYCLE[i % CYCLE.length] } : st); return fig(boxesDiagram(states, s.transitions), s.caption); },
     proposal: s => [
       h('h3', {}, 'CURRENT'), h('div', { class: 'tiles stack' }, tile({ ...s.current, color: s.current.color || 'gray' }, 0)),
@@ -458,15 +464,15 @@
   function header() {
     const fs = M.files || []; const added = fs.reduce((a, f) => a + (f.added || 0), 0), removed = fs.reduce((a, f) => a + (f.removed || 0), 0);
     const el = h('header', { class: 'top' });
-    el.append(h('h1', {}, `${M.app} Design Map: PR #${M.pr.number}`));
+    el.append(h('h1', {}, pageTitle()));
     // phones show the first three facts on one line; the rest (.sec) open with "More"
     const stat = (k, v, sec) => h('div', { class: 'stat' + (sec ? ' sec' : '') }, h('span', { class: 'k' }, k), h('span', { class: 'v' }, v));
     const summary = h('div', { class: 'summary' },
-      stat('Pull request', pill(prUrl(), `PR #${M.pr.number}`)),
-      stat('Head', h('span', { class: 'count' }, String(M.pr.head).slice(0, 7))),
-      stat('Changes', h('span', { html: `${fs.length} files <b class="add">+${added}</b> <b class="del">−${removed}</b>` })),
-      stat('Branch', M.pr.branch || '', true),
-      stat('Date', M.pr.date || '', true),
+      DESIGN ? stat('Design', DESIGN.name) : stat('Pull request', pill(prUrl(), `PR #${M.pr.number}`)),
+      stat('Head', h('span', { class: 'count' }, headText())),
+      DESIGN ? null : stat('Changes', h('span', { html: `${fs.length} files <b class="add">+${added}</b> <b class="del">−${removed}</b>` })),
+      stat('Branch', (DESIGN || M.pr).branch || '', true),
+      stat('Date', (DESIGN || M.pr).date || '', true),
       stat('Updated', M.updated || '', true));
     if (M.session && M.session.url) summary.append(stat('Session', pill(M.session.url, M.session.name || `session ${String(M.session.id || '').slice(0, 8)}`), true));
     const more = h('button', { class: 'more-btn', type: 'button', 'aria-expanded': 'false' }, 'More ▾');
@@ -485,7 +491,7 @@
   /* 1400px and wider: a sticky sidebar with the section list, Key and Settings */
   function sidebar(secs) {
     return h('aside', { class: 'sidebar' },
-      h('div', { class: 'side-app' }, M.app || ''), h('div', { class: 'side-pr' }, `PR #${M.pr.number}`),
+      h('div', { class: 'side-app' }, M.app || ''), h('div', { class: 'side-pr' }, pageTag()),
       h('nav', { class: 'toc', 'aria-label': 'Sections' }, secs.map(([id, t]) => h('a', { href: '#' + id, 'data-toc': id }, t))),
       h('div', { class: 'side-tools' }, toolBtn('Key', 'sheet-key'), toolBtn([h('span', { class: 'ico', 'aria-hidden': 'true' }, '⚙'), 'Settings'], 'sheet-settings')));
   }
@@ -540,6 +546,7 @@
       ['Code', [h('span', { class: 'codekey', html: '<span class="kw">keyword</span> <span class="ty">Type</span> <span class="fn">call()</span> <span class="st">"string"</span> <span class="nm">42 →</span> <span class="cm"># comment</span>' })]],
       ['Links', [countPill(sample), h('span', { class: 'muted' }, 'lines in the file'), h('span', { class: 'pill', html: 'View file ↗' }), h('span', { class: 'pill', html: `View changes ${delta(sample)} ↗` }), h('span', { class: 'muted' }, 'added · removed in this PR')]],
     ];
+    if (DESIGN) for (const name of ['Files', 'Links']) rows.splice(rows.findIndex(r => r[0] === name), 1);   // a design page has no changed files
     if (M.legend) for (const k in M.legend) rows.push([k, M.legend[k].map((e, i) => sw(e.name, color(e.color, i), e.edge))]);
     const el = h('div', { class: 'legend' });
     rows.forEach(([k, v]) => el.append(h('div', { class: 'k' }, k), h('div', { class: 'v' }, v)));
@@ -549,8 +556,8 @@
   /* ---------- main ---------- */
   function main() {
     const root = document.getElementById('map'); root.innerHTML = '';
-    document.documentElement.setAttribute('data-app', M.app || ''); document.documentElement.setAttribute('data-pr', M.pr.number); document.documentElement.setAttribute('data-head', M.pr.head);
-    document.title = `${M.app} Design Map: PR #${M.pr.number}`;
+    document.documentElement.setAttribute('data-app', M.app || ''); document.documentElement.setAttribute(DESIGN ? 'data-design' : 'data-pr', DESIGN ? DESIGN.name : M.pr.number); document.documentElement.setAttribute('data-head', headSha());
+    document.title = pageTitle();
     const secs = (M.sections || []).map((s, i) => [secId(s, i), s.title || '']);
     root.append(header(), ...(M.sections || []).map(section));
     const layout = root.parentElement; layout.insertBefore(sidebar(secs), root); layout.parentElement.insertBefore(topbar(secs), layout);
